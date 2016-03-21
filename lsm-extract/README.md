@@ -8,7 +8,9 @@ This is currently implemented using the Sydney University Molonglo Sky Survey (S
 You will need a local copy of the SUMSS catalog file from 
 http://www.astrop.physics.usyd.edu.au/sumsscat/sumsscat.Mar-11-2008.gz (cf *download_sumsscat.sh*).
 
-*extract_lsm.py* can be run as a script, e.g.
+You will also need to install the Python libraries listed in *requirements.txt*.
+
+*extract_lsm.py* can then be run as a script, e.g.
     
     ./extract_lsm.py --help
 
