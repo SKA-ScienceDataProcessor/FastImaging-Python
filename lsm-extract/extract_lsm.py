@@ -182,6 +182,10 @@ def cli(ra, dec, radius, outfile, catalog_file):
     Extracts sources from the catalog within a circular region
 
     \b
+    Example usage:
+    ./extract_lsm.py -- 189.2 -45.6 1.5 lsm.csv
+
+    \b
     Args:
     - ra (float): RA of centre (decimal degrees, J2000)
     - dec (float): Dec of centre (decimal degrees, J2000)
