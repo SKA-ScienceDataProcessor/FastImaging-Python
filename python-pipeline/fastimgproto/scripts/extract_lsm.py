@@ -2,6 +2,7 @@
 from __future__ import print_function
 from astropy import units as u
 from astropy.coordinates import SkyCoord, Angle
+from astropy.utils.data import download_file
 import math
 import click
 import sys
@@ -78,7 +79,9 @@ class SumssSrc():
 
 def sumss_file_to_dataframe(catalog_file):
     df = pandas.read_csv(
-        catalog_file, sep='\s+', header=None, names=sumss_colnames)
+        catalog_file, sep='\s+', header=None, names=sumss_colnames,
+        compression='gzip',
+    )
     return df
 
 
@@ -175,8 +178,7 @@ def lsm_extract(ra_centre, dec_centre, radius, full_catalog):
 @click.argument('dec', type=click.FLOAT)
 @click.argument('radius', type=click.FLOAT)
 @click.argument('outfile', type=click.File(mode='w'), default='-')
-@click.option('--catalog-file', type=click.Path(exists=True),
-              default='./sumsscat.Mar-11-2008.gz')
+@click.option('--catalog-file', type=click.Path(exists=True))
 def cli(ra, dec, radius, outfile, catalog_file):
     """
     Extracts sources from the catalog within a circular region
@@ -196,12 +198,19 @@ def cli(ra, dec, radius, outfile, catalog_file):
 
     \b
     Options:
-    - catalog_file (path): Path to sumsscat. Default: ./sumsscat.Mar-11-2008.gz
+    - catalog_file (path): Path to SUMS catalog file (sumsscat.Mar-11-2008.gz).
+        If unsupplied, will attempt to download / use cached version via the
+        Astropy download cache.
 
     Outputs:
         An list of matching sources in GSM-format.
 
     """
+    if catalog_file is None:
+        catalog_file = download_file(
+            'http://www.astrop.physics.usyd.edu.au/sumsscat/sumsscat.Mar-11-2008.gz',
+            cache=True)
+
     if not (ra>=0. and ra<360):
         raise ValueError("Please use central RA in range [0,360).")
 
