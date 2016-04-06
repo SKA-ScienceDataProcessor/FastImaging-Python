@@ -183,7 +183,7 @@ def cli(ra, dec, radius, outfile, catalog_file):
 
     \b
     Example usage:
-    ./extract_lsm.py -- 189.2 -45.6 1.5 lsm.csv
+    fastimg_extract_lsm -- 189.2 -45.6 1.5 lsm.csv
 
     \b
     Args:

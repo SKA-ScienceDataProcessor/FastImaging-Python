@@ -1,4 +1,4 @@
-# lsm-extract
+# extract_lsm.py
 
 A quick'n'dirty script to produce an arbitrarily formatted 'local-sky-model'
 by extracting a subset of a larger sky-catalog from a local catalog-file.
