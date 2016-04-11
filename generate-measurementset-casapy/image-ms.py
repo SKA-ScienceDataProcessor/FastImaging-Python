@@ -1,5 +1,5 @@
 
-output_ms = 'vla-sim.MS'
+input_ms = 'vla-resim.MS'
 
 # image properties
 NPIX = 2048  # the image size
@@ -17,7 +17,7 @@ NITER = 100  # cycles
 # -----------------------------------------
 
 im = casac.imager()
-im.open(output_ms)
+im.open(input_ms)
 im.defineimage(nx=NPIX, ny=NPIX, cellx=CELL, celly=CELL, stokes='I')
 im.clean(algorithm='csclean', image='vla.image', model='vla.model',
          residual='vla.residual', mask='', niter=NITER, gain=GAIN)
