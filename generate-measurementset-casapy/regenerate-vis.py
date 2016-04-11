@@ -71,7 +71,7 @@ def genvis(dist_uvw, l, m, flux):
 
     return flux * src_n * np.exp(-2j * np.pi * np.dot(dist_uvw, src_offset))
 
-uvw = np.loadtxt('uvw-vla-sim.txt')
+uvw = np.loadtxt('uvw-lambda.txt')
 
 pointing_centre = SkyCoord('12h00m00s 34d00m00s')
 
