@@ -7,6 +7,7 @@ from __future__ import print_function
 from astropy import units as u
 from astropy.coordinates import SkyCoord, Angle
 import math
+import numpy as np
 import pandas
 from collections import OrderedDict
 
@@ -62,7 +63,7 @@ class SumssSrc():
         )
         self.peak_flux = row.peak_flux_mjy * u.mJy
         self.peak_flux_err = row.peak_flux_err_mjy * u.mJy
-        self.variable_source = False
+        self.variable = row.variable
 
     def to_ordereddict(self):
         od = OrderedDict()
@@ -72,7 +73,7 @@ class SumssSrc():
         od['dec_err'] = self.position_err.dec.deg
         od['peak_flux_mjy'] = self.peak_flux.to(u.mJy).value
         od['peak_flux_err_mjy'] = self.peak_flux_err.to(u.mJy).value
-        od['variable'] = self.variable_source
+        od['variable'] = self.variable
         return od
 
 
@@ -105,7 +106,8 @@ def alpha_factor(dec_deg, radius_deg):
     )))
     return alpha
 
-def lsm_extract(ra_centre, dec_centre, radius, full_catalog):
+def lsm_extract(ra_centre, dec_centre, radius, full_catalog,
+                variable_portion=0.1, seed=42):
     """
     Extract a local sky model from a given catalog
 
@@ -114,6 +116,11 @@ def lsm_extract(ra_centre, dec_centre, radius, full_catalog):
     - dec_centre (float): Dec of centre (decimal degrees, J2000)
     - radius (float): Cone-radius (decimal degrees)
     - full_catalog (DataFrame): pandas.DataFrame loaded from the catalog.
+    - variable_portion (float): Proportion of sources to be randomly assigned
+        'variable=True'.
+    - seed: Seed to use for random state generator. We set a default,
+        static value for this since we generally want consistent variability
+        results from one run to the next.
 
     Returns:
         matches: A list of :class:`SumssSrc` in the region.
@@ -123,6 +130,12 @@ def lsm_extract(ra_centre, dec_centre, radius, full_catalog):
         raise ValueError("Please use central RA in range [0,360).")
 
     full_cat = full_catalog
+
+    rstate = np.random.RandomState(42)
+    random_floats =  rstate.rand(len(full_cat))
+    variable_col = random_floats < variable_portion
+    full_cat['variable'] = variable_col
+
     dec_floor = math.floor(dec_centre - radius)
     dec_ceil = math.ceil(dec_centre + radius)
 
