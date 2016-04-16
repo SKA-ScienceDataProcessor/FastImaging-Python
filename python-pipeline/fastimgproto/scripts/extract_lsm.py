@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
 from astropy.utils.data import download_file
+from astropy.coordinates import Angle, SkyCoord
+import astropy.units as u
+from fastimgproto.skymodel.helpers import SkyRegion
 from fastimgproto.skymodel.extraction import (
     sumss_file_to_dataframe,
     lsm_extract
@@ -60,13 +63,17 @@ def cli(ra, dec, radius, outfile, vcat, catalog_file):
         An list of matching sources in GSM-format.
 
     """
+
+    field_of_view = SkyRegion(SkyCoord(ra*u.deg, dec*u.deg),
+                              Angle(radius*u.deg))
+
     if catalog_file is None:
         catalog_file = download_file(
             'http://www.astrop.physics.usyd.edu.au/sumsscat/sumsscat.Mar-11-2008.gz',
             cache=True)
 
     full_cat = sumss_file_to_dataframe(catalog_file)
-    lsm_cat = lsm_extract(ra, dec, radius, full_cat)
+    lsm_cat = lsm_extract(field_of_view, full_cat)
     variable_cat = [s for s in lsm_cat if s.variable]
 
     write_catalog(lsm_cat, outfile)

@@ -23,6 +23,6 @@ setup(
         entry_points='''
             [console_scripts]
             fastimg_extract_lsm=fastimgproto.scripts.extract_lsm:cli
-            fastimg_fullpipe=fastimgproto.scripts.fullpipe:cli
+            fastimg_simpipe=fastimgproto.scripts.simpipe:cli
         ''',
 )

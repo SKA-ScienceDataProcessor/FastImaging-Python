@@ -10,16 +10,7 @@ import math
 import numpy as np
 import pandas
 from collections import OrderedDict
-
-
-class PositionError():
-    def __init__(self, ra_err, dec_err):
-        self.ra = ra_err
-        self.dec = dec_err
-
-    def __str__(self):
-        return "<PositionError: (ra, dec) in deg ({}, {})>".format(
-            self.ra.deg, self.dec.deg)
+from fastimgproto.skymodel.helpers import PositionError, SkySource
 
 
 # http://www.astrop.physics.usyd.edu.au/sumsscat/description.html
@@ -43,7 +34,7 @@ sumss_colnames = (
 )
 
 
-class SumssSrc():
+class SumssSrc(SkySource):
     """
     Represents an entry from the SUMSS catalog.
 
@@ -51,19 +42,22 @@ class SumssSrc():
     """
 
     def __init__(self, row):
-        self.position = SkyCoord(
+        position = SkyCoord(
             (row.ra_h, row.ra_m, row.ra_s),
             (row.dec_d, row.dec_m, row.dec_s),
             unit=(u.hourangle, u.deg),
         )
-
+        self.peak_flux = row.peak_flux_mjy * u.mJy
+        self.peak_flux_err = row.peak_flux_err_mjy * u.mJy
+        self.variable = row.variable
         self.position_err = PositionError(
             ra_err=Angle(row.ra_err_arcsec * u.arcsecond),
             dec_err=Angle(row.dec_err_arcsec * u.arcsecond)
         )
-        self.peak_flux = row.peak_flux_mjy * u.mJy
-        self.peak_flux_err = row.peak_flux_err_mjy * u.mJy
-        self.variable = row.variable
+
+        super(SumssSrc, self).__init__(
+            position=position, flux=self.peak_flux, variable=self.variable)
+
 
     def to_ordereddict(self):
         od = OrderedDict()
@@ -106,15 +100,13 @@ def alpha_factor(dec_deg, radius_deg):
     )))
     return alpha
 
-def lsm_extract(ra_centre, dec_centre, radius, full_catalog,
+def lsm_extract(skyregion, full_catalog,
                 variable_portion=0.1, seed=42):
     """
     Extract a local sky model from a given catalog
 
     Args:
-    - ra_centre (float): RA of centre (decimal degrees, J2000)
-    - dec_centre (float): Dec of centre (decimal degrees, J2000)
-    - radius (float): Cone-radius (decimal degrees)
+    - skyregion (:class:`.SkyRegion`): Area of sky to extract catalog for
     - full_catalog (DataFrame): pandas.DataFrame loaded from the catalog.
     - variable_portion (float): Proportion of sources to be randomly assigned
         'variable=True'.
@@ -126,6 +118,10 @@ def lsm_extract(ra_centre, dec_centre, radius, full_catalog,
         matches: A list of :class:`SumssSrc` in the region.
 
     """
+    ra_centre = skyregion.centre.ra.deg
+    dec_centre = skyregion.centre.dec.deg
+    radius_deg = skyregion.radius.deg
+    # Shouldn't be possible if using SkyCoord, but leave sanity-check in anyway:
     if not (ra_centre>=0. and ra_centre<360):
         raise ValueError("Please use central RA in range [0,360).")
 
@@ -136,8 +132,8 @@ def lsm_extract(ra_centre, dec_centre, radius, full_catalog,
     variable_col = random_floats < variable_portion
     full_cat['variable'] = variable_col
 
-    dec_floor = math.floor(dec_centre - radius)
-    dec_ceil = math.ceil(dec_centre + radius)
+    dec_floor = math.floor(dec_centre - radius_deg)
+    dec_ceil = math.ceil(dec_centre + radius_deg)
 
     # We filter on declination. Easy since there's no wraparound,
     # and we don't even need to convert from DMS, we just filter at the degree
@@ -151,7 +147,7 @@ def lsm_extract(ra_centre, dec_centre, radius, full_catalog,
                                       + dec_filtered['ra_s']/3600)
 
     # Calculate RA limits taking into account longitude convergence near poles:
-    alpha = alpha_factor(dec_centre, radius)
+    alpha = alpha_factor(dec_centre, radius_deg)
     ra_floor = ra_centre - alpha
     ra_ceil = ra_centre + alpha
 
@@ -188,7 +184,7 @@ def lsm_extract(ra_centre, dec_centre, radius, full_catalog,
     for row in ra_filtered.itertuples():
         src = SumssSrc(row)
         sep_degrees = centre.separation(src.position).deg
-        if sep_degrees < radius:
+        if sep_degrees < radius_deg:
             matches.append(src)
         # print(count)
     return matches
