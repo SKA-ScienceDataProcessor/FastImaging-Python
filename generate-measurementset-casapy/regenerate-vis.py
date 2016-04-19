@@ -67,7 +67,7 @@ def genvis(dist_uvw, l, m, flux):
     # src vec = [l,m, src_w]
     # phase centre vec = [0,0,1]
     # src - centre:
-    src_offset = np.array([l, m, src_n - 1])
+    src_offset = -np.array([l, m, src_n - 1])
 
     return flux * src_n * np.exp(-2j * np.pi * np.dot(dist_uvw, src_offset))
 
