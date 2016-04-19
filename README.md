@@ -1,7 +1,4 @@
-# SDP PIP IMG Prototype code
+# Fast Imaging Python Prototype code
 
-A holding place for PIP.IMG prototyping code, relating to fast imaging for
-transient searches.
-
-Please keep files organized into subproject folders, so they can be easily split
-into separate repositories in future if required.
+Python demonstrator code and associated cross-validation tests,
+relating to fast imaging for transient searches.
