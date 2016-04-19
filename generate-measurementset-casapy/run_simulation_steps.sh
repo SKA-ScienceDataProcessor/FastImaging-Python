@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 
-CASAPY="casapy --nogui"
 
-$CASAPY -c "generate-ms.py"
-$CASAPY -c "export-uvw.py"
+CODE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
+CASAPY="casapy --nogui"
+OUTDIR="./simulation_output"
+
+mkdir -p $OUTDIR
+cp ${CODE_DIR}/vla.c.cfg $OUTDIR
+cd $OUTDIR
+
+$CASAPY -c "${CODE_DIR}/generate-ms.py"
+$CASAPY -c "${CODE_DIR}/export-uvw.py"
 cp -r "vla-sim.MS" "vla-resim.MS"
-python regenerate-vis.py
-$CASAPY -c "reimport-data-to-casa.py"
-$CASAPY -c "image-ms.py"
+python "${CODE_DIR}/regenerate-vis.py"
+$CASAPY -c "${CODE_DIR}/reimport-data-to-casa.py"
+$CASAPY -c "${CODE_DIR}/image-ms.py"
