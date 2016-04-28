@@ -147,6 +147,8 @@ sm.observe('ptcentre', 'IF0', starttime=str(begin / 3600) + 'h',
 sm.setdata(fieldid=[0])
 sm.predict(imagename=[''], complist='src-' + FILENAME + '.cl')
 
+sm.setnoise(simplenoise='10Jy')
+sm.corrupt()
+
 sm.close()
 sm.done()
-

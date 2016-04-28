@@ -76,7 +76,7 @@ uvw = np.loadtxt('uvw-lambda.txt')
 pointing_centre = SkyCoord('12h00m00s 34d00m00s')
 
 src1 = pointing_centre
-src2 = SkyCoord(pointing_centre.ra.deg + 0.1, pointing_centre.dec.deg + 0.1,
+src2 = SkyCoord(pointing_centre.ra.deg + 0.05, pointing_centre.dec.deg + 0.05,
                 unit=('deg', 'deg'))
 
 

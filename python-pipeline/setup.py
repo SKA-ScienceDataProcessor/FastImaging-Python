@@ -24,5 +24,6 @@ setup(
             [console_scripts]
             fastimg_extract_lsm=fastimgproto.scripts.extract_lsm:cli
             fastimg_simpipe=fastimgproto.scripts.simpipe:cli
+            fastimg_sourcefind=fastimgproto.scripts.sourcefind:cli
         ''',
 )

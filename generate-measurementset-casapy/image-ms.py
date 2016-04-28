@@ -8,6 +8,7 @@ CELL = '0.4arcsec'  # the resolution of each pixel
 # cleaning
 GAIN = 0.1  # gain
 NITER = 100  # cycles
+# NITER = 0  # cycles
 
 
 # -----------------------------------------
