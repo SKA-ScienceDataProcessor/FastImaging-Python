@@ -2,7 +2,7 @@
 
 
 CODE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
-CASAPY="casapy --nogui"
+CASAPY="casa --nogui"
 OUTDIR="./simulation_output"
 
 mkdir -p $OUTDIR
@@ -15,3 +15,6 @@ cp -r "vla-sim.MS" "vla-resim.MS"
 python "${CODE_DIR}/regenerate-vis.py"
 $CASAPY -c "${CODE_DIR}/reimport-data-to-casa.py"
 $CASAPY -c "${CODE_DIR}/image-ms.py"
+
+
+fastimg_sourcefind vla.image.fits
