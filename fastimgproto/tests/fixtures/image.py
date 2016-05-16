@@ -3,7 +3,7 @@ import astropy.units as u
 from astropy.modeling.models import Gaussian2D
 
 
-def uncorrelated_gaussian_noise(shape, mean=0, sigma=1.0):
+def uncorrelated_gaussian_noise_background(shape, mean=0, sigma=1.0):
     normal_noise = np.random.randn(*shape)
     return (sigma * normal_noise) + mean
 
@@ -24,8 +24,7 @@ def gaussian_point_source(x_centre,
                       )
 
 
-def add_models_to_background(bg_image, model_list):
-    ydim, xdim = bg_image.shape
+def evaluate_model_on_pixel_grid(image_shape, model):
+    ydim, xdim = image_shape
     ygrid, xgrid = np.mgrid[:ydim, :xdim]
-    for model in model_list:
-        bg_image += model(xgrid, ygrid)
+    return model(xgrid, ygrid)

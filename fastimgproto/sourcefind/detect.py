@@ -25,6 +25,12 @@ def label_mask(labels_map, label_num):
     return ~(labels_map == label_num)
 
 def process_island(image, labels_map, label_index, detection_thresh):
+    """
+    Scan pixels in an island and return the max-pixel index and value.
+
+    Returns:
+        peak_pixel (tuple): Nested tuple `((y_idx,x_idx),peak_value)`
+    """
     # image masked except for label 'island':
     island = np.ma.MaskedArray(image, mask=label_mask(labels_map, label_index))
     if (island > detection_thresh).any():
