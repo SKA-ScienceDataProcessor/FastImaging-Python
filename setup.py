@@ -7,7 +7,8 @@ install_requires = [
         'astropy',
         'click',
         'pandas',
-        'scipy'
+        'pytest',
+        'scipy',
 ]
 
 setup(

@@ -33,6 +33,12 @@ class PositionError(object):
 class SkySource(object):
     """
     Basic point source w/ flux modelled at a single frequency
+
+    Args:
+        position (astropy.coordinates.SkyCoord): Sky-coordinates of source.
+        flux (astropy.units.Quantity): Source flux at measured frequency.
+        frequency (astropy.units.Quantity): Measurement frequency.
+        variable (bool): 'Known variable' flag.
     """
     def __init__(self, position, flux,
                  frequency=2.5*u.GHz, variable=False):
