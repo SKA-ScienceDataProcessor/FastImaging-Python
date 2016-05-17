@@ -12,4 +12,5 @@ def test_model_generation_and_evaluation():
     src = gaussian_point_source(x_centre=32, y_centre=64)
     img += evaluate_model_on_pixel_grid(img.shape, src)
     assert img[0, 0] == 0.0
-    assert np.abs(img[src.y_mean, src.x_mean] - src.amplitude) < 0.01
+    assert np.abs(img[int(src.y_mean.value), int(src.x_mean.value)]
+                    - src.amplitude) < 0.01

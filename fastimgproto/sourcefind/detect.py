@@ -2,15 +2,15 @@ import astropy.stats
 import numpy as np
 from scipy import ndimage
 
-def extract_sources(image, detection_n_sigma, analysis_n_sigma):
-    rms = estimate_rms(image)
+def extract_sources(image, detection_n_sigma, analysis_n_sigma,
+                    rms_estimate):
     bg_level = np.ma.median(image)
-    detection_thresh = bg_level + detection_n_sigma*rms
-    analysis_thresh = bg_level + analysis_n_sigma*rms
+    detection_thresh = bg_level + detection_n_sigma*rms_estimate
+    analysis_thresh = bg_level + analysis_n_sigma*rms_estimate
     analysis_map = image > analysis_thresh
     labels_map, n_labels = ndimage.label(analysis_map)
     detections = []
-    for i in range(n_labels):
+    for i in range(1, n_labels+1):
         extraction =  process_island(image,labels_map, i, detection_thresh)
         if extraction:
             detections.append(extraction)
