@@ -1,6 +1,3 @@
-"""
-Pipeline subroutines
-"""
 
 from astropy.utils.data import download_file
 from astropy.coordinates import SkyCoord
@@ -23,13 +20,13 @@ def get_lsm(field_of_view):
 def get_spiral_source_test_pattern(field_of_view):
     assert isinstance(field_of_view, SkyRegion)
 
-    offset = 0.1 * u.deg
+    offset = 0.05 * u.deg
 
     centre = field_of_view.centre
-    north = SkyCoord(centre.ra.deg, centre.dec.deg + offset)
-    east = SkyCoord(centre.ra.deg + 2 * offset, centre.dec.deg)
-    south = SkyCoord(centre.ra.deg, centre.dec.deg - 3 * offset)
-    west = SkyCoord(centre.ra.deg - 4 * offset, centre.dec.deg)
+    north = SkyCoord(centre.ra, centre.dec + offset)
+    east = SkyCoord(centre.ra + 2 * offset, centre.dec)
+    south = SkyCoord(centre.ra, centre.dec - 3 * offset)
+    west = SkyCoord(centre.ra - 4 * offset, centre.dec)
 
     srclist = []
     for posn in (
