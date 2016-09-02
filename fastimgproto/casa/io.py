@@ -66,7 +66,7 @@ def replace_corrected_data_vis(vis_ms_path, stokes_i):
         corrdata = tbl.getcol('CORRECTED_DATA')
         corrdata= np.zeros_like(corrdata)
         colshape = corrdata[...,0].shape
-        corrdata[...,0] = stokes_i.reshape(colshape)
+        corrdata[..., 0] = stokes_i.reshape(colshape)
         corrdata[..., 3] = stokes_i.reshape(colshape)
         tbl.putcol('CORRECTED_DATA', corrdata)
 
