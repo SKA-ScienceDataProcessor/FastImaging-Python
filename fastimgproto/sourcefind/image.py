@@ -1,10 +1,10 @@
 import astropy.stats
 import numpy as np
 from scipy import ndimage
-from attr import attributes, attr
+from attr import attrs, attrib
 
 
-@attributes
+@attrs
 class IslandParams(object):
     """
     Data structure for representing source 'islands'
@@ -20,13 +20,13 @@ class IslandParams(object):
         xbar (float): Barycentric centre in x-pixel index
         ybar(float): Barycentric centre in y-pixel index
     """
-    parent = attr()
-    label_idx = attr()
-    peak_val = attr()
-    peak_x_idx = attr(default=None)
-    peak_y_idx = attr(default=None)
-    xbar = attr(default=None)
-    ybar = attr(default=None)
+    parent = attrib()
+    label_idx = attrib()
+    peak_val = attrib()
+    peak_x_idx = attrib(default=None)
+    peak_y_idx = attrib(default=None)
+    xbar = attrib(default=None)
+    ybar = attrib(default=None)
 
     def calculate_params(self):
         """
