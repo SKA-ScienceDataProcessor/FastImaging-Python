@@ -85,8 +85,8 @@ def _bounds_check_kernel_centre_locations(uv, kernel_centre_indices,
         | (kernel_centre_indices[:, 0] + support >= image_size)
         | (kernel_centre_indices[:, 1] + support >= image_size)
     )
-    out_of_bounds_idx = np.where(out_of_bounds_bool)
-    good_vis_idx = np.where(np.invert(out_of_bounds_bool))
+    out_of_bounds_idx = np.nonzero(out_of_bounds_bool)
+    good_vis_idx = np.nonzero(np.invert(out_of_bounds_bool))
 
     if out_of_bounds_bool.any():
         bad_uv = uv[out_of_bounds_idx]
