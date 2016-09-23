@@ -8,7 +8,7 @@ def test_regular_sampling_pillbox():
     support = 2
     oversampling = 1
 
-    #Map subpixel offset to expected results
+    # Map subpixel offset to expected results
     expected_results = {}
 
     # No offset - expect 1's for all central 3x3 pixels:
@@ -76,7 +76,7 @@ def test_regular_sampling_triangle():
     kv1 = kernel_value_at_1pix
     kv1sq = kv1 * kv1
 
-    #Map subpixel offset to expected results
+    # Map subpixel offset to expected results
     expected_results = {}
 
     # No offset
@@ -107,38 +107,95 @@ def test_regular_sampling_triangle():
         assert (k.array == expected_array).all()
 
 
-def test_oversampled_pillbox1():
+def test_oversampled_pillbox():
     testfunc = conv_funcs.Pillbox(half_base_width=0.7)
     support = 1
     oversampling = 3
 
-    #Map subpixel offset to expected results
+    # Map subpixel offset to expected results
     expected_results = {}
 
     # No offset - expect 1's for all central 5x5 pixels, since cut-off is
     # just above 2/3:
     expected_results[(0., 0.)] = np.array(
         [[0., 0., 0., 0., 0., 0., 0.],
-        [0., 1., 1., 1., 1., 1., 0.],
-        [0., 1., 1., 1., 1., 1., 0.],
-        [0., 1., 1., 1., 1., 1., 0.],
-        [0., 1., 1., 1., 1., 1., 0.],
-        [0., 1., 1., 1., 1., 1., 0.],
-        [0., 0., 0., 0., 0., 0., 0.]]
+         [0., 1., 1., 1., 1., 1., 0.],
+         [0., 1., 1., 1., 1., 1., 0.],
+         [0., 1., 1., 1., 1., 1., 0.],
+         [0., 1., 1., 1., 1., 1., 0.],
+         [0., 1., 1., 1., 1., 1., 0.],
+         [0., 0., 0., 0., 0., 0., 0.]]
     )
     # Same for tiny offset
-    expected_results[(0.01, 0.01)] =expected_results[(0.00, 0.00)]
+    expected_results[(0.01, 0.01)] = expected_results[(0.00, 0.00)]
 
     # Displace towards -ve x a bit:
     expected_results[(-.05, 0.)] = np.array(
         [[0., 0., 0., 0., 0., 0., 0.],
-        [0., 1., 1., 1., 1., 0., 0.],
-        [0., 1., 1., 1., 1., 0., 0.],
-        [0., 1., 1., 1., 1., 0., 0.],
-        [0., 1., 1., 1., 1., 0., 0.],
-        [0., 1., 1., 1., 1., 0., 0.],
-        [0., 0., 0., 0., 0., 0., 0.]]
+         [0., 1., 1., 1., 1., 0., 0.],
+         [0., 1., 1., 1., 1., 0., 0.],
+         [0., 1., 1., 1., 1., 0., 0.],
+         [0., 1., 1., 1., 1., 0., 0.],
+         [0., 1., 1., 1., 1., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0.]]
     )
+
+    expected_results[(0.4, 0.)] = np.array(
+        [[0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 1., 1., 1., 1.],
+         [0., 0., 0., 1., 1., 1., 1.],
+         [0., 0., 0., 1., 1., 1., 1.],
+         [0., 0., 0., 1., 1., 1., 1.],
+         [0., 0., 0., 1., 1., 1., 1.],
+         [0., 0., 0., 0., 0., 0., 0.]]
+    )
+    for offset, expected_array in expected_results.items():
+        k = Kernel(kernel_func=testfunc,
+                   support=support,
+                   offset=offset,
+                   oversampling=oversampling)
+
+        assert (k.array == expected_array).all()
+
+
+def test_oversampled_pillbox_small():
+    testfunc = conv_funcs.Pillbox(half_base_width=0.25)
+    support = 1
+    oversampling = 5
+
+    # Map subpixel offset to expected results
+    expected_results = {}
+
+    expected_results[(0., 0.)] = np.array(
+        [[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 1., 1., 1., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 1., 1., 1., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 1., 1., 1., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         ]
+    )
+
+    expected_results[(0.4, 0.0)] = np.array(
+        [[0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 1., 1., 1., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 1., 1., 1., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 1., 1., 1., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
+         ]
+    )
+
     for offset, expected_array in expected_results.items():
         k = Kernel(kernel_func=testfunc,
                    support=support,

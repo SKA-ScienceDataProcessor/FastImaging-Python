@@ -16,7 +16,9 @@ class Kernel(object):
         support (int): Defines the 'radius' of the bounding box within
             which convolution takes place. `Box width in pixels = 2*support+1`.
             (The central pixel is the one nearest to the UV co-ordinates.)
-            (This is sometimes known as the 'half-support')
+            For a kernel_func with truncation radius `trunc`, the support
+            should be set to `ceil(trunc+0.5)` to ensure that the kernel
+            function is fully supported for all valid subpixel offsets.
         offset (tuple): 2-vector subpixel offset from the sampling position of the
             central pixel to the origin of the kernel function.
             Ordering is (x_offset,y_offset). Should have values such that

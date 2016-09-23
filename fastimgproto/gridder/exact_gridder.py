@@ -1,7 +1,12 @@
 """
 Exact convolutional gridder routine
 """
+import logging
+import warnings
 import numpy as np
+from fastimgproto.gridder.kernel_generation import Kernel
+
+logger = logging.getLogger(__name__)
 
 
 def exact_convolve_to_grid(kernel_func, support,
@@ -23,17 +28,17 @@ def exact_convolve_to_grid(kernel_func, support,
             2d array of `float_`, shape: `(n_vis, 2)`.
             assumed ordering is u-then-v, i.e. `u, v = uv[idx]`
         vis (numpy.ndarray): Complex visibilities.
-            1d array of `complex_`, shape: `(n_vis,)`.
+            1d array, shape: `(n_vis,)`.
 
     Returns:
         vis_grid (numpy.ndarray): The gridded visibilities.
-            2d array of `numpy.complex_`, shape `(image_size, image_size)`.
+            2d array of same dytpe as `vis`, shape `(image_size, image_size)`.
             Note numpy style index-order, i.e. access like `vis_grid[v,u]`.
 
     """
     assert len(uv) == len(vis)
 
-    vis_grid = np.zeros((image_size, image_size), dtype=np.complex_)
+    vis_grid = np.zeros((image_size, image_size), dtype=vis.dtype)
 
     # Calculate nearest integer pixel co-ords
     uv_rounded = np.around(uv)
@@ -41,14 +46,23 @@ def exact_convolve_to_grid(kernel_func, support,
     uv_frac = uv - uv_rounded
     uv_round_int = uv_rounded.astype(np.int)
     # Now get the corresponding grid-pixels by adding the origin offset
-    grid_centre_pixel_idx = uv_round_int + (image_size//2, image_size//2)
-    for vis, vis_idx in enumerate(vis):
+    grid_centre_pixel_idx = uv_round_int + (image_size // 2, image_size // 2)
+
+    for vis_idx, vis in enumerate(vis):
         gc_x, gc_y = grid_centre_pixel_idx[vis_idx]
-        #Bounds check, skip if kernel over-runs the image boundary
-        if (gc_x - support < 0) or (gc_x + support >= image_size):
+        # Bounds check, skip if kernel over-runs the image boundary
+        if ((gc_x - support < 0) or (gc_x + support >= image_size)
+            or (gc_y - support < 0) or (gc_y + support >= image_size)):
+            logger.warning("Ignoring visibility at {}, too close to edge".format(
+                uv[vis_idx]
+            ))
             continue
-        if (gc_y - support < 0) or (gc_y + support >= image_size):
-            continue
+        # Generate a convolution kernel with the precise offset required:
+        xrange = slice(gc_x - support, gc_x + support + 1)
+        yrange = slice(gc_y - support, gc_y + support + 1)
+        kernel = Kernel(kernel_func=kernel_func, support=support,
+                        offset=uv_frac[vis_idx],
+                        oversampling=1)
+        vis_grid[yrange, xrange] += vis * kernel.array / kernel.array.sum()
 
-
-
+    return vis_grid
