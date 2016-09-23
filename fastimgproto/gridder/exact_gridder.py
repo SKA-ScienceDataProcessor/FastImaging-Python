@@ -2,7 +2,6 @@
 Exact convolutional gridder routine
 """
 import logging
-import warnings
 import numpy as np
 from fastimgproto.gridder.kernel_generation import Kernel
 
@@ -11,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 def exact_convolve_to_grid(kernel_func, support,
                            image_size,
-                           uv, vis, ):
+                           uv, vis,
+                           raise_bounds=True):
     """
 
     Args:
@@ -29,6 +29,8 @@ def exact_convolve_to_grid(kernel_func, support,
             assumed ordering is u-then-v, i.e. `u, v = uv[idx]`
         vis (numpy.ndarray): Complex visibilities.
             1d array, shape: `(n_vis,)`.
+        raise_bounds (bool): Raise an exception if any of the UV
+            samples lie outside (or too close to the edge) of the grid.
 
     Returns:
         vis_grid (numpy.ndarray): The gridded visibilities.
@@ -48,21 +50,51 @@ def exact_convolve_to_grid(kernel_func, support,
     # Now get the corresponding grid-pixels by adding the origin offset
     grid_centre_pixel_idx = uv_round_int + (image_size // 2, image_size // 2)
 
-    for vis_idx, vis in enumerate(vis):
-        gc_x, gc_y = grid_centre_pixel_idx[vis_idx]
-        # Bounds check, skip if kernel over-runs the image boundary
-        if ((gc_x - support < 0) or (gc_x + support >= image_size)
-            or (gc_y - support < 0) or (gc_y + support >= image_size)):
-            logger.warning("Ignoring visibility at {}, too close to edge".format(
-                uv[vis_idx]
-            ))
-            continue
+    good_vis_idx = _bounds_check_kernel_centre_locations(
+        uv, grid_centre_pixel_idx,
+        support=support, image_size=image_size,
+        raise_if_bad=raise_bounds)
+
+    for idx, vis_value in np.ndenumerate(vis[good_vis_idx]):
+        gc_x, gc_y = grid_centre_pixel_idx[idx]
+
         # Generate a convolution kernel with the precise offset required:
         xrange = slice(gc_x - support, gc_x + support + 1)
         yrange = slice(gc_y - support, gc_y + support + 1)
         kernel = Kernel(kernel_func=kernel_func, support=support,
-                        offset=uv_frac[vis_idx],
+                        offset=uv_frac[idx],
                         oversampling=1)
-        vis_grid[yrange, xrange] += vis * kernel.array / kernel.array.sum()
 
+        vis_grid[yrange, xrange] += vis_value * kernel.array / kernel.array.sum()
     return vis_grid
+
+
+def _bounds_check_kernel_centre_locations(uv, kernel_centre_indices,
+                                          support, image_size,
+                                          raise_if_bad):
+    """
+    Vectorized bounds check, returns idx for good data.
+
+    Check if kernel over-runs the image boundary for any of the chosen central
+    pixels
+    """
+
+    out_of_bounds_bool = (
+        (kernel_centre_indices[:, 0] - support < 0)
+        | (kernel_centre_indices[:, 1] - support < 0)
+        | (kernel_centre_indices[:, 0] + support >= image_size)
+        | (kernel_centre_indices[:, 1] + support >= image_size)
+    )
+    out_of_bounds_idx = np.where(out_of_bounds_bool)
+    good_vis_idx = np.where(np.invert(out_of_bounds_bool))
+
+    if out_of_bounds_bool.any():
+        bad_uv = uv[out_of_bounds_idx]
+        msg = "{} UV locations are out-of-grid or too close to edge:{}".format(
+            len(bad_uv), bad_uv)
+        if raise_if_bad:
+            raise ValueError(msg)
+        else:
+            logger.warning(msg)
+
+    return good_vis_idx

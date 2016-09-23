@@ -46,17 +46,17 @@ def test_bounds_checking():
     vis = np.ones(len(uv), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(1.5)
 
-    # with pytest.raises(ValueError):
-    #     grid = exact_convolve_to_grid(kernel_func,
-    #                                   support=support,
-    #                                   image_size=n_image,
-    #                                   uv=uv, vis=vis)
+    with pytest.raises(ValueError):
+        grid = exact_convolve_to_grid(kernel_func,
+                                      support=support,
+                                      image_size=n_image,
+                                      uv=uv, vis=vis)
 
     grid = exact_convolve_to_grid(kernel_func,
                                   support=support,
                                   image_size=n_image,
                                   uv=uv, vis=vis,
-                                  # raise_bounds=False
+                                  raise_bounds=False
                                   )
     assert grid.sum() == 0.
 
