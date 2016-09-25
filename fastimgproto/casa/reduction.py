@@ -1,18 +1,23 @@
+import os
+
+import astropy.units as u
 import drivecasa
 from drivecasa.utils import ensure_dir
-import os
 
 
 def make_image_map_fits(vis_ms_path, output_dir,
+                        image_size, cell_size,
                         niter=150, threshold_in_jy=0.3):
     ensure_dir(output_dir)
 
 
     script = []
 
+    img_n_pix = int(image_size.to(u.pixel).value)
+    cell_arcsec = cell_size.to(u.arcsec).value
     clean_args = {
-        "imsize": [1024, 1024],
-        "cell": ['3.0arcsec'],
+        "imsize": [img_n_pix, img_n_pix],
+        "cell": [str(cell_arcsec)+'arcsec'],
         "weighting": 'briggs',
         "robust": 0.5,
     }

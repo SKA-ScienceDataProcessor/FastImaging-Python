@@ -6,6 +6,7 @@ import astropy.units as u
 import fastimgproto.casa.io as casa_io
 import fastimgproto.casa.reduction as casa_reduce
 import fastimgproto.casa.simulation as casa_sim
+import fastimgproto.pipeline.image as pyimage
 import fastimgproto.visibility as visibility
 import logging
 import os
@@ -14,11 +15,24 @@ from fastimgproto.skymodel.helpers import SkyRegion, SkySource
 from fastimgproto.pipeline.skymodel import (get_spiral_source_test_pattern)
 
 
-def main():
+class ImagingMethods:
+    casa = 'casa'
+    python = 'python'
+
+
+def main(method):
+    """
+    Args:
+        method (str): Choice of 'casa' or 'python', determines what we use
+            to do the imaging step.
+    """
     output_dir = './simulation_output'
     pointing_centre = SkyCoord(180 * u.deg, 34 * u.deg)
     field_of_view = SkyRegion(pointing_centre,
                               radius=Angle(1 * u.deg))
+
+    image_size = 1024 * u.pixel
+    cell_size = 3 * u.arcsecond
 
     # source_list = get_lsm(field_of_view)
     source_list = get_spiral_source_test_pattern(field_of_view)
@@ -57,14 +71,23 @@ def main():
 
     # Image the difference
     # (also image incoming / model data separately for desk-checking).
-    for vp in (vis_path, model_vis_path, residuals_vis_path,):
-        casa_reduce.make_image_map_fits(vp, output_dir)
+    if method == ImagingMethods.casa:
+        for vp in (vis_path, model_vis_path, residuals_vis_path,):
+            casa_reduce.make_image_map_fits(vp, output_dir,
+                                            image_size, cell_size)
+
+    if method == ImagingMethods.python:
+        pyimage.make_image_map_fits(vp, output_dir, image_size, cell_size)
 
 
-        # Source find / verify output
+# Source find / verify output
 
 
 @click.command()
-def cli():
+@click.option('--method',
+              type=click.Choice([ImagingMethods.casa, ImagingMethods.python]),
+              default=ImagingMethods.casa)
+def cli(method):
     logging.basicConfig(level=logging.DEBUG)
-    main()
+    click.echo("Imaging method:"+ method)
+    main(method)

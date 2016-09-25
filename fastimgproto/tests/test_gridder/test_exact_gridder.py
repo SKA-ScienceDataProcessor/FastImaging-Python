@@ -12,17 +12,17 @@ def test_single_pixel_overlap_pillbox():
     # [-4, -3, -2, -1, 0, 1, 2, 3 ]
     n_image = 8
     support = 1
-    uv = np.array([(-2., 0)])
+    uv = np.array([(-2., 0), (-2., 0)])
     # Real vis will be complex_, but we can substitute float_ for testing:
-    vis = np.ones(len(uv), dtype=np.float_)
+    vis_amplitude = 42.123
+    vis = vis_amplitude * np.ones(len(uv), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(0.5)
 
-    grid = exact_convolve_to_grid(kernel_func,
-                                  support=support,
-                                  image_size=n_image,
-                                  uv=uv, vis=vis)
-    assert grid.sum() == vis.sum()
-
+    vis_grid, sampling_grid = exact_convolve_to_grid(kernel_func,
+                                                     support=support,
+                                                     image_size=n_image,
+                                                     uv=uv, vis=vis)
+    assert vis_grid.sum() == vis.sum()
     expected_result = np.array(
         [[0., 0., 0., 0., 0., 0., 0., 0., ],
          [0., 0., 0., 0., 0., 0., 0., 0., ],
@@ -33,7 +33,8 @@ def test_single_pixel_overlap_pillbox():
          [0., 0., 0., 0., 0., 0., 0., 0., ],
          [0., 0., 0., 0., 0., 0., 0., 0., ]]
     )
-    assert (expected_result == grid).all()
+    assert (expected_result * vis.sum() == vis_grid).all()
+    assert (expected_result * len(uv) == sampling_grid).all()
 
 
 def test_bounds_checking():
@@ -52,12 +53,12 @@ def test_bounds_checking():
                                       image_size=n_image,
                                       uv=uv, vis=vis)
 
-    grid = exact_convolve_to_grid(kernel_func,
-                                  support=support,
-                                  image_size=n_image,
-                                  uv=uv, vis=vis,
-                                  raise_bounds=False
-                                  )
+    grid, _ = exact_convolve_to_grid(kernel_func,
+                                     support=support,
+                                     image_size=n_image,
+                                     uv=uv, vis=vis,
+                                     raise_bounds=False
+                                     )
     assert grid.sum() == 0.
 
 
@@ -69,11 +70,11 @@ def test_multi_pixel_pillbox():
     vis = np.ones(len(uv), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(1.1)
 
-    grid = exact_convolve_to_grid(kernel_func,
-                                  support=support,
-                                  image_size=n_image,
-                                  uv=uv, vis=vis)
-    assert grid.sum() == vis.sum()
+    vis_grid, sampling_grid = exact_convolve_to_grid(kernel_func,
+                                                     support=support,
+                                                     image_size=n_image,
+                                                     uv=uv, vis=vis)
+    assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
     # 3x3 pillbox
@@ -88,7 +89,9 @@ def test_multi_pixel_pillbox():
          [0., 0., 0., 0., 0., 0., 0., 0., ],
          [0., 0., 0., 0., 0., 0., 0., 0., ]]
     )
-    assert (expected_result == grid).all()
+    assert (expected_result == vis_grid).all()
+    # In this case we expect sampling == vis, since we only have one vis == 1.0
+    assert (expected_result == sampling_grid).all()
 
 
 def test_small_pillbox():
@@ -99,10 +102,10 @@ def test_small_pillbox():
     vis = np.ones(len(uv), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(0.55)
 
-    grid = exact_convolve_to_grid(kernel_func,
-                                  support=support,
-                                  image_size=n_image,
-                                  uv=uv, vis=vis)
+    grid, _ = exact_convolve_to_grid(kernel_func,
+                                     support=support,
+                                     image_size=n_image,
+                                     uv=uv, vis=vis)
     assert grid.sum() == vis.sum()
     # This time we're on a mid-point, with a smaller pillbox
     # so we should get a 2x2 output
@@ -133,11 +136,11 @@ def test_multiple_complex_vis():
     vis = np.ones(len(uv), dtype=np.complex_)
     kernel_func = conv_funcs.Pillbox(1.1)
 
-    grid = exact_convolve_to_grid(kernel_func,
-                                  support=support,
-                                  image_size=n_image,
-                                  uv=uv, vis=vis)
-    assert grid.sum() == vis.sum()
+    vis_grid, sampling_grid = exact_convolve_to_grid(kernel_func,
+                                     support=support,
+                                     image_size=n_image,
+                                     uv=uv, vis=vis)
+    assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
     # 3x3 pillbox
@@ -154,7 +157,46 @@ def test_multiple_complex_vis():
          [0., v, v, v, 0., 0., 0., 0.],
          [0., 0., 0., 0., 0., 0., 0., 0.]]
     )
-    assert (expected_result == grid).all()
+    assert (expected_result == vis_grid).all()
+    assert (expected_result == sampling_grid).all()
+
+
+def test_nearby_complex_vis():
+    # Quick sanity check for multiple visibilities, kernel footprints
+    # overlapping:
+    n_image = 8
+    support = 2
+
+    uv = np.array([(-2., 1),
+                   (0., -1),
+                   ])
+    # vis = np.ones(len(uv), dtype=np.float_)
+    vis = np.ones(len(uv), dtype=np.complex_)
+    kernel_func = conv_funcs.Pillbox(1.1)
+
+    vis_grid, sampling_grid = exact_convolve_to_grid(kernel_func,
+                                         support=support,
+                                         image_size=n_image,
+                                         uv=uv, vis=vis)
+    assert vis_grid.sum() == vis.sum()
+
+    # Since uv is precisely on a sampling point, we'll get a
+    # 3x3 pillbox
+    v = 1. / 9. + 0j
+
+    expected_vis_grid = np.array(
+        # [-4, -3, -2, -1, 0, 1, 2, 3 ]
+        [[0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., v, v, v, 0., 0.],
+         [0., 0., 0., v, v, v, 0., 0.],
+         [0., v, v, 2. * v, v, v, 0., 0.],
+         [0., v, v, v, 0., 0., 0., 0.],
+         [0., v, v, v, 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0.]]
+    )
+    assert (expected_vis_grid == vis_grid).all()
+    assert (expected_vis_grid == sampling_grid).all()
 
 
 def test_triangle():
@@ -169,10 +211,10 @@ def test_triangle():
     uv += subpix_offset
     kernel_func = conv_funcs.Triangle(2.0)
 
-    grid = exact_convolve_to_grid(kernel_func,
-                                  support=support,
-                                  image_size=n_image,
-                                  uv=uv, vis=vis)
+    grid, _ = exact_convolve_to_grid(kernel_func,
+                                     support=support,
+                                     image_size=n_image,
+                                     uv=uv, vis=vis)
 
     kernel = Kernel(kernel_func=kernel_func, support=support,
                     offset=subpix_offset[0],
