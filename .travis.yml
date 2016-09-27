@@ -3,9 +3,16 @@ matrix:
   include:
     - python: "2.7"
       env: TOXENV=py27
+    - python: "2.7"
+      env: TOXENV=docs
 
 install: "pip install tox"
 script: tox
+
+addons:
+  apt:
+    packages:
+    - pandoc
 
 notifications:
   email:
