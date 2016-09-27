@@ -1,2 +1,2 @@
 include versioneer.py
-include fastimgproto/_version.py
+graft src

@@ -1,4 +1,4 @@
-from fastimgproto.tests.fixtures.image import (
+from ..fixtures.image import (
     evaluate_model_on_pixel_grid,
     gaussian_point_source,
     uncorrelated_gaussian_noise_background
