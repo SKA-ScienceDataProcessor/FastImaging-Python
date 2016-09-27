@@ -24,7 +24,11 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
+    'nbsphinx',
 ]
+
+# nbsphinx_allow_errors = True
+exclude_patterns = ['_build', '**.ipynb_checkpoints']
 
 # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['_templates']
@@ -53,7 +57,7 @@ if 'dirty' in version:
 
 
 language = None
-exclude_patterns = []
+
 # add_function_parentheses = True
 # add_module_names = True
 # The name of the Pygments (syntax highlighting) style to use.
