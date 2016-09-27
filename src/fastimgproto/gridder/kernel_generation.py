@@ -7,11 +7,13 @@ import numpy as np
 
 
 class Kernel(object):
-    def __init__(self, kernel_func, support, offset=(0.0, 0.0), oversampling=1):
-        """
+    """
+    Generates a 2D array representing a sampled kernel function.
 
-        Args:
-        kernel_func (func): Callable object that returns a convolution
+    Args:
+        kernel_func (callable): Callable object,
+            (e.g. :class:`.conv_funcs.Pillbox`,)
+            that returns a convolution
             co-efficient for a given distance in pixel-widths.
         support (int): Defines the 'radius' of the bounding box within
             which convolution takes place. `Box width in pixels = 2*support+1`.
@@ -22,11 +24,19 @@ class Kernel(object):
         offset (tuple): 2-vector subpixel offset from the sampling position of the
             central pixel to the origin of the kernel function.
             Ordering is (x_offset,y_offset). Should have values such that
-                `fabs(offset) <= 0.5`
+            `fabs(offset) <= 0.5`
             otherwise the nearest integer grid-point would be different!
-        oversampling (int):
+        oversampling (int): Oversampling ratio, how many kernel pixels
+            to each UV-grid pixel.
 
-        """
+    Attributes:
+        array (numpy.ndarray): The sampled kernel function.
+        kernel_func, support, offset, oversampling : See params.
+
+
+    """
+    def __init__(self, kernel_func, support, offset=(0.0, 0.0), oversampling=1):
+
 
         self.oversampling = oversampling
         self.kernel_func = kernel_func

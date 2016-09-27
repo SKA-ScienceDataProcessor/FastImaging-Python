@@ -15,7 +15,9 @@ def exact_convolve_to_grid(kernel_func, support,
     """
 
     Args:
-        kernel_func (func): Callable object that returns a convolution
+        kernel_func (callable): Callable object,
+            (e.g. :class:`.conv_funcs.Pillbox`,)
+            that returns a convolution
             co-efficient for a given distance in pixel-widths.
         support (int): Defines the 'radius' of the bounding box within
             which convolution takes place. `Box width in pixels = 2*support+1`.
@@ -33,11 +35,12 @@ def exact_convolve_to_grid(kernel_func, support,
             samples lie outside (or too close to the edge) of the grid.
 
     Returns:
-        (vis_grid, sampling_grid) (numpy.ndarray, numpy.ndarray): Tuple of 2
-            arrays, representing the gridded visibilities and the sampling
-            weights.
-            2d arrays of same dtype as `vis`, shape `(image_size, image_size)`.
-            Note numpy style index-order, i.e. access like `vis_grid[v,u]`.
+        tuple: (vis_grid, sampling_grid)
+            Tuple of ndarrays representing the gridded visibilities and the
+            sampling weights.
+            These are 2d arrays of same dtype as **vis**,
+            shape ``(image_size, image_size)``.
+            Note numpy style index-order, i.e. access like ``vis_grid[v,u]``.
 
     """
     assert len(uv) == len(vis)
