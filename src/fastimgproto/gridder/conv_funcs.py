@@ -15,7 +15,7 @@ import numpy as np
 @attrs
 class Triangle(object):
     """
-    Linearly declines from 1.0 at origin to 0.0 at `half_base_width`, 0 thereafter.
+    Linearly declines from 1.0 at origin to 0.0 at **half_base_width**, zero thereafter.
     "
 
     Symmetric about the origin.
@@ -23,6 +23,10 @@ class Triangle(object):
     Makes a terrible anti-aliasing function. But, because it's so
     simple, it's easy to verify and therefore a useful tool in verifying
     convolution codes.
+
+    Attributes:
+        half_base_width (float): Half-base width of the triangle.
+
     """
     half_base_width = attrib()
 
@@ -36,13 +40,18 @@ class Triangle(object):
 @attrs
 class Pillbox(object):
     """
-    Valued 1.0 from origin `half_base_width`, 0 thereafter. AKA 'TopHat'
+    Valued 1.0 from origin to **half_base_width**, zero thereafter.
+
+    AKA 'TopHat' function.
 
     Symmetric about the origin.
 
     Makes a terrible anti-aliasing function. But, because it's so
     simple, it's easy to verify and therefore a useful tool in verifying
     convolution codes.
+
+    Attributes:
+        half_base_width (float): Half-base width pillbox.
     """
     half_base_width = attrib()
 
