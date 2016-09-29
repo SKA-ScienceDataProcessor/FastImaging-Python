@@ -55,7 +55,7 @@ class Triangle(ConvFuncBase):
     simple, it's easy to verify and therefore a useful tool in verifying
     convolution codes.
 
-    Attributes:
+    Args:
         half_base_width (float): Half-base width of the triangle.
 
     """
@@ -83,7 +83,7 @@ class Pillbox(ConvFuncBase):
     simple, it's easy to verify and therefore a useful tool in verifying
     convolution codes.
 
-    Attributes:
+    Args:
         half_base_width (float): Half-base width pillbox.
     """
 
@@ -97,13 +97,8 @@ class Pillbox(ConvFuncBase):
 
 class Sinc(ConvFuncBase):
     """
-    Sinc function, truncated beyond **trunc** pixels from centre.
-
-
-    Attributes:
-        trunc (float): Truncation radius
+    Sinc function (with truncation).
     """
-    trunc = attrib(default=3.0)
 
     def __init__(self, trunc):
         super(Sinc, self).__init__(trunc)
@@ -112,18 +107,32 @@ class Sinc(ConvFuncBase):
         return np.sinc(radius_in_pix)
 
 
-class Sinc(ConvFuncBase):
+class GaussianSinc(ConvFuncBase):
     """
-    Sinc function, truncated beyond **trunc** pixels from centre.
+    Gaussian times sinc function (with truncation).
 
+    evaluates the function::
 
-    Attributes:
-        trunc (float): Truncation radius
+        exp(-(x/w1)**2) * sinc(x/w2)
+
+    (Using the notation of Taylor 1998, p143, where x = u/delta_u and alpha==2.
+    Default values for w1,w2 are chosen according to recommendation therein).
+
+    Args:
+        trunc: truncation radius.
+        w1 (float): Width normalization of the Gaussian. Default = 2.52
+        w2 (float): Width normalization of the sinc. Default = 1.55
+
     """
-    trunc = attrib(default=3.0)
 
-    def __init__(self, trunc):
-        super(Sinc, self).__init__(trunc)
+    def __init__(self, trunc, w1=2.52, w2=1.55):
+        super(GaussianSinc, self).__init__(trunc)
+        self.w1 = w1
+        self.w2 = w2
 
     def f(self, radius_in_pix):
-        return np.sinc(radius_in_pix)
+        radius_div_w1 = radius_in_pix / self.w1
+        return (
+            np.exp(-1. * (radius_div_w1 * radius_div_w1)) *
+            np.sinc(radius_in_pix / self.w2)
+        )

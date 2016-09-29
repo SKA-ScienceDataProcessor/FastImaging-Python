@@ -41,7 +41,7 @@ def test_tophat_func():
         [2.5, 1.0],
         [2.999, 1.0],
         [3.0, 0.0],
-        [4.2,0.],
+        [4.2, 0.],
     ])
     check_function_results_close(tophat3, io_pairs)
 
@@ -50,11 +50,32 @@ def test_sinc():
     sinc = conv_funcs.Sinc(trunc=3.0)
     io_pairs = np.array([
         [0.0, 1.0],
-        [1.0, 0.0],
         [0.5, 1. / (0.5 * np.pi)],
-        [1.5, -1. / (1.5*np.pi)],
+        [1.0, 0.0],
+        [1.5, -1. / (1.5 * np.pi)],
         [2.0, 0.0],
-        [2.5, 1. / (2.5*np.pi)],
-        [3.5, 0.], # Truncated
+        [2.5, 1. / (2.5 * np.pi)],
+        [3.5, 0.],  # Truncated
+    ])
+    check_function_results_close(sinc, io_pairs)
+
+
+def test_gaussian_sinc():
+    # Use conventional scaling values:
+    w1 = 2.52
+    w2 = 1.55
+    trunc = 5.0
+    sinc = conv_funcs.GaussianSinc(trunc=trunc, w1=w1, w2=w2)
+    io_pairs = np.array([
+        [0.0, 1.0],
+        [w2 * 0.5,
+         np.exp(-1. * (0.5 * w2 / w1) ** 2) * 1. / (0.5 * np.pi)],
+        [w2, 0.0],
+        [w2 * 1.5,
+         np.exp(-1. * (1.5 * w2 / w1) ** 2) * -1. / (1.5 * np.pi)],
+        [w2 * 2., 0.0],
+        [w2 * 2.5,
+         np.exp(-1. * (2.5 * w2 / w1) ** 2) * 1. / (2.5 * np.pi)],
+        [5.5, 0.],  # Truncated
     ])
     check_function_results_close(sinc, io_pairs)
