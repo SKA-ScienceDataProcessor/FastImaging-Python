@@ -36,8 +36,8 @@ def test_basic_source_detection():
                          rms_est=rms)
     assert len(sf.islands) == 1
     src = sf.islands[0]
-    print bright_src
-    print src
+    # print(bright_src)
+    # print(src)
     assert np.abs(src.peak_x_idx - bright_src.x_mean) <0.5
     assert np.abs(src.peak_y_idx - bright_src.y_mean) <0.5
     assert np.abs(src.xbar - bright_src.x_mean) <0.1

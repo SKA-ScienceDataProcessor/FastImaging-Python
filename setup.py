@@ -9,6 +9,7 @@ install_requires = [
     'click',
     'pandas',
     'pytest',
+    'six',
     'scipy',
 ]
 

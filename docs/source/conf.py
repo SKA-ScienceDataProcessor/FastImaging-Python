@@ -68,7 +68,7 @@ pygments_style = 'sphinx'
 todo_include_todos = False
 
 
-autoclass_content = 'both'
+autoclass_content = 'class'
 # napoleon_use_ivar = True
 
 # Warn when references cannot be resolved:
