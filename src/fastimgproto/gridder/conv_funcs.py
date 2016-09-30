@@ -8,7 +8,6 @@ callable with one parameter, the distance in pixels.
 
 This allows us to pass the convolution routine the minimum of extra parameters.
 """
-from attr import attrs, attrib
 import numpy as np
 from six import add_metaclass
 from abc import ABCMeta, abstractmethod
@@ -105,6 +104,32 @@ class Sinc(ConvFuncBase):
 
     def f(self, radius_in_pix):
         return np.sinc(radius_in_pix)
+
+
+class Gaussian(ConvFuncBase):
+    """
+    Gaussian function (with truncation).
+
+    evaluates the function::
+
+        exp(-(x/w)**2)
+
+    (Using the notation of Taylor 1998, p143, where x = u/delta_u and alpha==2.
+    Default value of ``w=1``).
+
+    Args:
+        trunc: truncation radius.
+        w (float): Width normalization of the Gaussian. Default = 1.0
+
+    """
+
+    def __init__(self, trunc, w=1.0):
+        super(Gaussian, self).__init__(trunc)
+        self.w = w
+
+    def f(self, radius_in_pix):
+        radius_div_w = radius_in_pix / self.w
+        return np.exp(-1. * (radius_div_w * radius_div_w))
 
 
 class GaussianSinc(ConvFuncBase):

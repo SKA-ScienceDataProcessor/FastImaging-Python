@@ -63,7 +63,9 @@ def test_regular_sampling_pillbox():
         k = Kernel(kernel_func=testfunc,
                    support=support,
                    offset=offset,
-                   oversampling=oversampling)
+                   oversampling=oversampling,
+                   normalize=False,
+                   )
         assert (k.array == expected_array).all()
 
 
@@ -102,7 +104,9 @@ def test_regular_sampling_triangle():
         k = Kernel(kernel_func=testfunc,
                    support=support,
                    offset=offset,
-                   oversampling=oversampling)
+                   oversampling=oversampling,
+                   normalize=False,
+                   )
 
         assert (k.array == expected_array).all()
 
@@ -153,7 +157,9 @@ def test_oversampled_pillbox():
         k = Kernel(kernel_func=testfunc,
                    support=support,
                    offset=offset,
-                   oversampling=oversampling)
+                   oversampling=oversampling,
+                   normalize=False,
+                   )
 
         assert (k.array == expected_array).all()
 
@@ -200,6 +206,8 @@ def test_oversampled_pillbox_small():
         k = Kernel(kernel_func=testfunc,
                    support=support,
                    offset=offset,
-                   oversampling=oversampling)
+                   oversampling=oversampling,
+                   normalize=False,
+                   )
 
         assert (k.array == expected_array).all()

@@ -1,11 +1,6 @@
 fastimgproto.gridder
 ====================
 
-.. automodule:: fastimgproto.gridder
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Modules
 -------
 
@@ -16,10 +11,10 @@ fastimgproto.gridder.conv_funcs module
     :members:
 
 
-fastimgproto.gridder.exact_gridder module
+fastimgproto.gridder.gridder module
 ----------------------------------------------------------------------------
 
-.. automodule:: fastimgproto.gridder.exact_gridder
+.. automodule:: fastimgproto.gridder.gridder
     :members:
 
 fastimgproto.gridder.kernel_generation module
@@ -27,7 +22,7 @@ fastimgproto.gridder.kernel_generation module
 
 .. automodule:: fastimgproto.gridder.kernel_generation
     :members:
-    :undoc-members:
+
 
 
 

@@ -60,6 +60,16 @@ def test_sinc():
     check_function_results_close(sinc, io_pairs)
 
 
+def test_gaussian():
+    trunc = 3.0
+    sinc = conv_funcs.Gaussian(trunc=trunc, w=1.0)
+    io_pairs = np.array([
+        [0.0, 1.0],
+        [1.0, 1./np.exp(1.)],
+        [3.1, 0.],  # Truncated
+    ])
+    check_function_results_close(sinc, io_pairs)
+
 def test_gaussian_sinc():
     # Use conventional scaling values:
     w1 = 2.52

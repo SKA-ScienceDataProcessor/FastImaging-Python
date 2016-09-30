@@ -28,39 +28,54 @@ class Kernel(object):
             otherwise the nearest integer grid-point would be different!
         oversampling (int): Oversampling ratio, how many kernel pixels
             to each UV-grid pixel.
+            Defaults to 1 if not given or ``oversampling=None`` is passed.
+        pad (bool): Whether to pad the array by an extra pixel-width.
+            This is used when generating an oversampled kernel that will be used
+            for interpolation.
 
     Attributes:
         array (numpy.ndarray): The sampled kernel function.
+        centre_idx (int): Index of the central pixel
         kernel_func, support, offset, oversampling : See params.
 
 
     """
-    def __init__(self, kernel_func, support, offset=(0.0, 0.0), oversampling=1):
 
+    def __init__(self, kernel_func, support, offset=(0.0, 0.0),
+                 oversampling=None, pad=False, normalize=True):
+        if oversampling is None:
+            oversampling = 1
 
-        self.oversampling = oversampling
-        self.kernel_func = kernel_func
-        self.offset = offset
-        self.support = support
+        assert isinstance(oversampling, int)
         assert isinstance(support, int)
         assert support >= 1
         assert len(offset) == 2
         for off_val in offset:
             assert -0.5 <= off_val <= 0.5
-        array_size = 2 * self.support * self.oversampling + 1
-        self.centre_idx = self.support*self.oversampling
 
-        #Offset from array[0,0] sample-position to kernel origin, in units of
-        # regular (i.e. not oversampled!) pixels:
-        origin_offset_x = self.support + offset[0]
-        origin_offset_y = self.support + offset[1]
+        self.oversampling = oversampling
+        self.kernel_func = kernel_func
+        self.offset = offset
+        self.support = support
 
-        # Distance from each pixel's sample position to kernel-origin position,
-        # in x/y axis (units of regular, non-oversampled, pixels, since those
-        # are what the kernel_func expects):
-        self.x_distance_vec = np.arange(array_size,dtype=np.float_)/oversampling - origin_offset_x
-        self.y_distance_vec = np.arange(array_size,dtype=np.float_)/oversampling - origin_offset_y
-        #Re-orient y_vec as a column
+        if pad:
+            padding = 1
+        else:
+            padding = 0
+
+        array_size = 2 * (self.support + padding) * self.oversampling + 1
+        self.centre_idx = (self.support + padding) * self.oversampling
+
+        # Distance from each pixel's sample position to kernel-centre position:
+        # (units of oversampled pixels)
+        oversampled_xy = np.arange(array_size,
+                                   dtype=np.float_) - self.centre_idx
+
+        # Now translate that to distance from sampling origin, in units of
+        # regular pixels:
+        self.x_distance_vec = oversampled_xy / oversampling - offset[0]
+        self.y_distance_vec = oversampled_xy / oversampling - offset[1]
+        # Re-orient y_vec as a column
         self.y_distance_vec = np.atleast_2d(self.y_distance_vec).T
 
         x_kernel_coeffs = self.kernel_func(self.x_distance_vec)
@@ -68,7 +83,5 @@ class Kernel(object):
 
         # Now multiply separable components to get the 2-d kernel:
         self.array = x_kernel_coeffs * y_kernel_coeffs
-
-
-
-
+        if normalize:
+            self.array/=self.array.sum()

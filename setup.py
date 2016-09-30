@@ -5,7 +5,6 @@ import versioneer
 
 install_requires = [
     'astropy',
-    'attrs',
     'click',
     'pandas',
     'pytest',
