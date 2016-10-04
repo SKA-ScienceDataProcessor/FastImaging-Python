@@ -9,9 +9,9 @@ import sys
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here.
-rootdir = os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))))
-sys.path.append(os.path.join(rootdir, 'src'))
+# rootdir = os.path.dirname(os.path.dirname(os.path.dirname(
+#     os.path.abspath(__file__))))
+# sys.path.append(os.path.join(rootdir, 'src'))
 
 # -- General configuration ------------------------------------------------
 
@@ -25,6 +25,7 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'nbsphinx',
+    'IPython.sphinxext.ipython_console_highlighting',
 ]
 
 # nbsphinx_allow_errors = True
