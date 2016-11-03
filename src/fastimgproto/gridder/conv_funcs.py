@@ -8,6 +8,7 @@ callable with one parameter, the distance in pixels.
 
 This allows us to pass the convolution routine the minimum of extra parameters.
 """
+from __future__ import division
 import numpy as np
 from six import add_metaclass
 from abc import ABCMeta, abstractmethod
@@ -37,7 +38,7 @@ class ConvFuncBase(object):
 
     def __call__(self, radius_in_pix):
         radius_in_pix = np.atleast_1d(radius_in_pix)
-        output = np.zeros_like(radius_in_pix)
+        output = np.zeros_like(radius_in_pix, dtype=np.float)
         inside_trunc_radius = np.fabs(radius_in_pix) < self.trunc
         output[inside_trunc_radius] = self.f(radius_in_pix[inside_trunc_radius])
         return output

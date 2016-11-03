@@ -33,6 +33,9 @@ def test_triangle_func():
 
     check_function_results_close(triangle2, io_pairs)
 
+    assert triangle2(1) == triangle2(1.0)
+    assert triangle2(1).dtype == np.float
+
 
 def test_tophat_func():
     tophat3 = conv_funcs.Pillbox(half_base_width=3.0)
@@ -75,7 +78,7 @@ def test_gaussian_sinc():
     w1 = 2.52
     w2 = 1.55
     trunc = 5.0
-    sinc = conv_funcs.GaussianSinc(trunc=trunc, w1=w1, w2=w2)
+    g_sinc = conv_funcs.GaussianSinc(trunc=trunc, w1=w1, w2=w2)
     io_pairs = np.array([
         [0.0, 1.0],
         [w2 * 0.5,
@@ -88,4 +91,7 @@ def test_gaussian_sinc():
          np.exp(-1. * (2.5 * w2 / w1) ** 2) * 1. / (2.5 * np.pi)],
         [5.5, 0.],  # Truncated
     ])
-    check_function_results_close(sinc, io_pairs)
+    check_function_results_close(g_sinc, io_pairs)
+
+    assert g_sinc(1) == g_sinc(1.0)
+    assert g_sinc(1).dtype == np.float
