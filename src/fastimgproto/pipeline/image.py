@@ -3,7 +3,7 @@ import fastimgproto.casa.io as casa_io
 import fastimgproto.gridder.conv_funcs as kfuncs
 import numpy as np
 from drivecasa.utils import derive_out_path
-from fastimgproto.gridder.exact_gridder import exact_convolve_to_grid
+from fastimgproto.gridder.gridder import convolve_to_grid
 
 
 def make_image_map_fits(vis_path, output_dir,
@@ -21,10 +21,11 @@ def make_image_map_fits(vis_path, output_dir,
 
     uv_in_pixels = uvw_in_pixels[:, :2]
     kernel = kfuncs.Triangle(1.5)
-    uvgrid = exact_convolve_to_grid(kernel, support=2,
-                                    image_size=image_size,
-                                    uv=uv_in_pixels,
-                                    vis=stokes_i
-                                    )
-    image = np.fft.ifftshift(np.fft.fft2(np.fft.fftshift(uvgrid)))
+    uvgrid = convolve_to_grid(kernel, support=2,
+                              image_size=image_size,
+                              uv=uv_in_pixels,
+                              vis=stokes_i
+                              )
+    ifft_data = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(uvgrid)))
+    image = np.real(ifft_data)
     return image

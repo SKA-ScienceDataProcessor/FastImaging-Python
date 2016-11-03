@@ -7,7 +7,7 @@ from drivecasa.utils import ensure_dir
 
 def make_image_map_fits(vis_ms_path, output_dir,
                         image_size, cell_size,
-                        niter=150, threshold_in_jy=0.3):
+                        niter=150, threshold_in_jy=0.1):
     ensure_dir(output_dir)
 
 
@@ -21,7 +21,18 @@ def make_image_map_fits(vis_ms_path, output_dir,
         "weighting": 'briggs',
         "robust": 0.5,
     }
-    maps = drivecasa.commands.clean(script,
+    dirty_maps = drivecasa.commands.clean(script,
+                                    vis_paths=vis_ms_path,
+                                    niter=0,
+                                    threshold_in_jy=threshold_in_jy,
+                                    other_clean_args=clean_args,
+                                    out_dir=output_dir,
+                                    overwrite=True)
+
+    dirty_fits_path = drivecasa.commands.export_fits(script, dirty_maps.image,
+                                               overwrite=True)
+
+    clean_maps = drivecasa.commands.clean(script,
                                     vis_paths=vis_ms_path,
                                     niter=niter,
                                     threshold_in_jy=threshold_in_jy,
@@ -29,13 +40,13 @@ def make_image_map_fits(vis_ms_path, output_dir,
                                     out_dir=output_dir,
                                     overwrite=True)
 
-    fits_path = drivecasa.commands.export_fits(script, maps.image,
+    clean_fits_path = drivecasa.commands.export_fits(script, clean_maps.image,
                                                overwrite=True)
 
-    logfile_basename = os.path.basename(maps.image)+".casa-clean-commands.log"
+    logfile_basename = os.path.basename(vis_ms_path)+".casa-clean-commands.log"
     commands_logfile = os.path.join(output_dir, logfile_basename)
     if os.path.isfile(commands_logfile):
         os.unlink(commands_logfile)
     casa = drivecasa.Casapy(commands_logfile=commands_logfile)
     casa.run_script(script)
-    return fits_path
+    return clean_fits_path

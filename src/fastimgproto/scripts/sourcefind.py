@@ -4,7 +4,7 @@ Run sourcefinding on a FITS image
 
 import click
 from astropy.io import fits
-from fastimgproto.sourcefind import extract_sources
+# from fastimgproto.sourcefind import extract_sources
 
 
 def main(fits_image_path, detection_n_sigma, analysis_n_sigma):
