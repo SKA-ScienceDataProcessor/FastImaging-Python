@@ -20,7 +20,7 @@ class ConfigKeys:
 
 
 @click.command()
-@click.argument('config_json', type=click.File(mode='rb'))
+@click.argument('config_json', type=click.File(mode='r'))
 @click.argument('in_vis', type=click.File(mode='rb'))
 @click.argument('out_img', type=click.File(mode='wb'))
 def cli(config_json, in_vis, out_img):
