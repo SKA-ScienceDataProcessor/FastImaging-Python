@@ -6,7 +6,6 @@ import astropy.units as u
 import fastimgproto.casa.io as casa_io
 import fastimgproto.casa.reduction as casa_reduce
 import fastimgproto.casa.simulation as casa_sim
-import fastimgproto.pipeline.image as pyimage
 import fastimgproto.visibility as visibility
 import logging
 import os
@@ -55,7 +54,7 @@ def main(method):
     vis_path = casa_sim.simulate_vis_with_casa(pointing_centre,
                                                source_list,
                                                # source_list_w_transient,
-                                               output_dir=output_dir)
+                                               vis_path=output_dir)
     uvw = casa_io.get_uvw_in_lambda(vis_path)
     stokes_i = casa_io.get_stokes_i_vis(vis_path)
 

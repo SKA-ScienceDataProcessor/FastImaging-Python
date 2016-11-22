@@ -7,6 +7,7 @@ install_requires = [
     'astropy',
     'attrs',
     'click',
+    'drive-casa>=0.7.6',
     'pandas',
     'pytest',
     'six',
@@ -31,6 +32,7 @@ setup(
             fastimg_extract_lsm=fastimgproto.scripts.extract_lsm:cli
             fastimg_simpipe=fastimgproto.scripts.simpipe:cli
             fastimg_simple_imager=fastimgproto.scripts.simple_imager:cli
+            fastimg_simulate_vis_with_casa=fastimgproto.scripts.simulate_vis_with_casa:cli
             fastimg_sourcefind=fastimgproto.scripts.sourcefind:cli
         ''',
 )
