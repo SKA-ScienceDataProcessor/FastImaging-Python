@@ -17,9 +17,26 @@ class ConfigKeys:
     image_size_pix = 'image_size_pix'
     cell_size_arcsec = 'cell_size_arcsec'
 
-
+def write_config(ctx, param, value):
+    """
+    Used as a Click 'eager callback', to write out a template config-JSON-File.
+    """
+    if not value or ctx.resilient_parsing:
+        return
+    default_config = {
+        ConfigKeys.image_size_pix: 1024,
+        ConfigKeys.cell_size_arcsec: 3,
+    }
+    config_file_path = 'image_config.json'
+    click.echo("Writing config JSON to '{}'".format(config_file_path))
+    with open(config_file_path, 'w') as f:
+        json.dump(default_config,f)
+    ctx.exit()
 
 @click.command()
+@click.option('--makeconfig', is_flag=True, callback=write_config,
+              expose_value=False, is_eager=True,
+              help="Write out config-JSON file and quit")
 @click.argument('config_json', type=click.File(mode='r'))
 @click.argument('in_vis', type=click.File(mode='rb'))
 @click.argument('out_img', type=click.File(mode='wb'))

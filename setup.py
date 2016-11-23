@@ -27,12 +27,13 @@ setup(
     # url="https://github.com/",
     install_requires=install_requires,
     entry_points='''
-            [console_scripts]
-            fastimg_casavis_to_npz=fastimgproto.scripts.casavis_to_npz:cli
-            fastimg_extract_lsm=fastimgproto.scripts.extract_lsm:cli
-            fastimg_simpipe=fastimgproto.scripts.simpipe:cli
-            fastimg_simple_imager=fastimgproto.scripts.simple_imager:cli
-            fastimg_simulate_vis_with_casa=fastimgproto.scripts.simulate_vis_with_casa:cli
-            fastimg_sourcefind=fastimgproto.scripts.sourcefind:cli
+        [console_scripts]
+        fastimg_casavis_to_npz=fastimgproto.scripts.casavis_to_npz:cli
+        fastimg_compare_imagers=fastimgproto.scripts.compare_imagers:cli
+        fastimg_extract_lsm=fastimgproto.scripts.extract_lsm:cli
+        fastimg_simpipe=fastimgproto.scripts.simpipe:cli
+        fastimg_simple_imager=fastimgproto.scripts.simple_imager:cli
+        fastimg_simulate_vis_with_casa=fastimgproto.scripts.simulate_vis_with_casa:cli
+        fastimg_sourcefind=fastimgproto.scripts.sourcefind:cli
         ''',
 )

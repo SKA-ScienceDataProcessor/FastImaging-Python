@@ -49,4 +49,4 @@ def make_image_map_fits(vis_ms_path, output_dir,
         os.unlink(commands_logfile)
     casa = drivecasa.Casapy(commands_logfile=commands_logfile)
     casa.run_script(script)
-    return clean_fits_path
+    return dirty_fits_path, clean_fits_path

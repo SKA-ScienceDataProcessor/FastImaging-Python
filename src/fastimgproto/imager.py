@@ -10,7 +10,8 @@ def fft_to_image_plane(uv_grid):
 def image_visibilities(vis, uvw_lambda,
                        image_size, cell_size,
                        kernel_func, kernel_support,
-                       kernel_oversampling):
+                       kernel_oversampling,
+                       normalize=True):
 
     image_size = image_size.to(u.pix)
     # Size of a UV-grid pixel, in multiples of wavelength (lambda):
@@ -27,4 +28,8 @@ def image_visibilities(vis, uvw_lambda,
                                              )
     image = fft_to_image_plane(vis_grid)
     beam = fft_to_image_plane(sample_grid)
+    if normalize:
+        beam_max = np.max(beam)
+        beam /= beam_max
+        image /= beam_max
     return (image, beam)
