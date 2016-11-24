@@ -15,7 +15,6 @@ from fastimgproto.gridder.conv_funcs import GaussianSinc
 from fastimgproto.pipeline.io import save_as_fits
 
 
-
 @click.command()
 @click.argument('casavis', type=click.Path(exists=True))
 @click.argument('outdir', type=click.Path())
@@ -31,6 +30,9 @@ def cli(casavis, outdir):
     #     casavis, outdir, image_size, cell_size)
 
     vis = casa_io.get_stokes_i_vis(casavis)
+    casa_reduce.make_image_map_fits(casavis, outdir,
+                                    image_size, cell_size)
+
     uvw_lambda = casa_io.get_uvw_in_lambda(casavis)
     kernel_support = 3
     kernel_func = GaussianSinc(trunc=kernel_support)

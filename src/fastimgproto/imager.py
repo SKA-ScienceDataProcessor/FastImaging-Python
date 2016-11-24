@@ -29,7 +29,7 @@ def image_visibilities(vis, uvw_lambda,
     image = fft_to_image_plane(vis_grid)
     beam = fft_to_image_plane(sample_grid)
     if normalize:
-        beam_max = np.max(beam)
+        beam_max = np.max(np.real(beam))
         beam /= beam_max
         image /= beam_max
     return (image, beam)

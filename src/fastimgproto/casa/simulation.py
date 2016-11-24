@@ -12,7 +12,7 @@ from drivecasa.utils import ensure_dir
 from fastimgproto.pipeline.data import vla_c_antennalist_path
 
 
-def simulate_vis_with_casa(pointing_centre, source_list, vis_path,
+def simulate_vis_with_casa(pointing_centre, source_list, noise_std_dev, vis_path,
                            overwrite=True, echo=False):
     """
     Use casapy to simulate a visibility measurementset with noise.
@@ -22,6 +22,8 @@ def simulate_vis_with_casa(pointing_centre, source_list, vis_path,
     Args:
         pointing_centre (:class:`astropy.coordinates.SkyCoord`)
         source_list: list of :class:`fastimgproto.skymodel.helpers.SkySource`
+        noise_std_dev (astropy.units.Quantity): Standard deviation of the noise
+            (units of Jy).
         vis_path (str): Path to visibilities generated.
         echo (bool): Echo the CASA output to terminal during processing.
 
@@ -96,7 +98,7 @@ def simulate_vis_with_casa(pointing_centre, source_list, vis_path,
 
     sim.predict(script, component_list_path)
 
-    sim.set_simplenoise(script, noise_std_dev=1 * u.mJy)
+    sim.set_simplenoise(script, noise_std_dev=noise_std_dev)
     sim.corrupt(script)
     sim.close_sim(script)
 

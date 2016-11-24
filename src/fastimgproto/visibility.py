@@ -81,9 +81,9 @@ def calculated_summed_vis(pointing_centre, source_list, uvw):
     Args:
         pointing_centre (astropy.coordinates.SkyCoord): Pointing centre
         source_list: List of list of :class:`fastimgproto.skymodel.helpers.SkySource`
-        uvw (numpy.array): UVW baselines (units of lambda).
+        uvw (numpy.ndarray): UVW baselines (units of lambda).
             Numpy array shape: (n_baselines, 3)
-    Returns (numpy.array):
+    Returns (numpy.ndarray):
         Complex visbilities sum for each baseline.
             Numpy array shape: (n_baselines,)
     """
@@ -103,3 +103,29 @@ def calculated_summed_vis(pointing_centre, source_list, uvw):
         sumvis += vis
 
     return sumvis
+
+
+def add_gaussian_noise(noise_level, vis, seed=None):
+    """
+    Add random Gaussian distributed noise to the visibilities.
+
+    Adds jointly-normal (i.e. independent) Gaussian noise to both the real
+    and imaginary components of the visibilities.
+
+    Args:
+        noise_level (astropy.units.Quantity): Noise level, in units equivalent
+            to Jansky. This defines the std. dev. / sigma of the Gaussian
+            distribution.
+        vis (numpy.ndarray): The array of (noise-free) complex visibilities.
+            (Does not alter - assign the returned array if you wish to replace.)
+        seed (int): Optional -  can be used to seed the random number generator
+            to ensure reproducible results.
+    Returns (numpy.ndarray):
+        Visibilities with complex Gaussian noise added.
+
+    """
+    sigma = noise_level.to(u.Jansky).value
+    rstate = np.random.RandomState(seed)
+    noise = rstate.normal(loc=0, scale=sigma, size=(len(vis),2))
+    return vis + (noise[:,0] + 1j*noise[:,1])
+

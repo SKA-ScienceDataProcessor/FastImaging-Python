@@ -25,7 +25,7 @@ def test_extract_lsm():
                                args=args)
         print(result.output)
 
-        with open(catalog_output_filename, 'rb') as tsvfile:
+        with open(catalog_output_filename, 'r') as tsvfile:
             dr=csv.DictReader(tsvfile, delimiter='\t')
             rows = [r for r in dr]
 
