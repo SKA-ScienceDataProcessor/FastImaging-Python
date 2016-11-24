@@ -36,7 +36,7 @@ sumss_colnames = (
 
 class SumssSrc(SkySource):
     """
-    Represents an entry from the SUMSS catalog.
+    Represents a subset of data from a row/source in the SUMSS catalog.
 
     (Sydney University Molonglo Southern Sky Survey)
     """
@@ -51,23 +51,37 @@ class SumssSrc(SkySource):
         self.peak_flux_err = row.peak_flux_err_mjy * u.mJy
         self.variable = row.variable
         self.position_err = PositionError(
-            ra_err=Angle(row.ra_err_arcsec * u.arcsecond),
-            dec_err=Angle(row.dec_err_arcsec * u.arcsecond)
+            ra=Angle(row.ra_err_arcsec * u.arcsecond),
+            dec=Angle(row.dec_err_arcsec * u.arcsecond)
         )
 
         super(SumssSrc, self).__init__(
             position=position, flux=self.peak_flux, variable=self.variable)
+    
+    class DictKeys(object):
+        ra = 'ra'
+        dec = 'dec'
+        ra_err = 'ra_err'
+        dec_err = 'dec_err'
+        peak_flux = 'peak_flux_mjy'
+        peak_flux_err = 'peak_flux_err_mjy'
+        variable = 'variable'
 
+    @classmethod
+    def _list_dictkeys(cls):
+        innards = vars(cls.DictKeys)
+        return  [innards[k] for k in innards if not k.startswith('__')]
 
     def to_ordereddict(self):
         od = OrderedDict()
-        od['ra'] = self.position.ra.deg
-        od['dec'] = self.position.dec.deg
-        od['ra_err'] = self.position_err.ra.deg
-        od['dec_err'] = self.position_err.dec.deg
-        od['peak_flux_mjy'] = self.peak_flux.to(u.mJy).value
-        od['peak_flux_err_mjy'] = self.peak_flux_err.to(u.mJy).value
-        od['variable'] = self.variable
+        keys = SumssSrc.DictKeys
+        od[keys.ra] = self.position.ra.deg
+        od[keys.dec] = self.position.dec.deg
+        od[keys.ra_err] = self.position_err.ra.deg
+        od[keys.dec_err] = self.position_err.dec.deg
+        od[keys.peak_flux] = self.peak_flux.to(u.mJy).value
+        od[keys.peak_flux_err] = self.peak_flux_err.to(u.mJy).value
+        od[keys.variable] = self.variable
         return od
 
 

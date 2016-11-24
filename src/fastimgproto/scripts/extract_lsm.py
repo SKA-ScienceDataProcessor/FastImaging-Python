@@ -6,21 +6,22 @@ import astropy.units as u
 from fastimgproto.skymodel.helpers import SkyRegion
 from fastimgproto.skymodel.extraction import (
     sumss_file_to_dataframe,
-    lsm_extract
+    lsm_extract,
+    SumssSrc,
 )
 import click
 import sys
 import csv
 
+
 def write_catalog(src_list, filehandle):
-    if src_list:
-        fieldnames = src_list[0].to_ordereddict().keys()
-        dw = csv.DictWriter(filehandle,
-                            fieldnames=fieldnames,
-                            delimiter='\t')
-        dw.writeheader()
-        for src in src_list:
-            dw.writerow(src.to_ordereddict())
+    dw = csv.DictWriter(filehandle,
+                        fieldnames=SumssSrc._list_dictkeys(),
+                        delimiter='\t')
+    dw.writeheader()
+    for src in src_list:
+        dw.writerow(src.to_ordereddict())
+
 
 @click.command()
 @click.argument('ra', type=click.FLOAT)
@@ -41,6 +42,10 @@ def cli(ra, dec, radius, outfile, vcat, catalog_file):
     or with separate variables catalog:
 
         fastimg_extract_lsm --vcat var.csv -- 189.2 -45.6 1.5 lsm.csv
+
+    Note: arguments (RA, dec, radius, [outfile]) are separated from options by the
+    separator `--`, this avoids mistakenly trying to parse a negative
+    declination as an option flag.
 
     \b
     Args:
@@ -64,8 +69,8 @@ def cli(ra, dec, radius, outfile, vcat, catalog_file):
 
     """
 
-    field_of_view = SkyRegion(SkyCoord(ra*u.deg, dec*u.deg),
-                              Angle(radius*u.deg))
+    field_of_view = SkyRegion(SkyCoord(ra * u.deg, dec * u.deg),
+                              Angle(radius * u.deg))
 
     if catalog_file is None:
         catalog_file = download_file(
@@ -80,9 +85,9 @@ def cli(ra, dec, radius, outfile, vcat, catalog_file):
     if vcat:
         write_catalog(variable_cat, vcat)
 
-    click.echo("{} sources matched".format(len(lsm_cat)))
-    click.echo("Of which {} variable.".format(len(variable_cat)))
-    sys.exit(0)
+    click.echo("{} sources matched, of which {} variable".format(
+        len(lsm_cat), len(variable_cat)),
+        err=True)
 
 
 if __name__ == '__main__':
