@@ -74,7 +74,7 @@ def visibilities_for_point_source(dist_uvw, l, m, flux):
     return flux * src_n * np.exp(-2j * np.pi * np.dot(dist_uvw, src_offset))
 
 
-def calculated_summed_vis(pointing_centre, source_list, uvw):
+def visibilities_for_source_list(pointing_centre, source_list, uvw):
     """
     Generate noise-free visibilities from UVW baselines and point-sources.
 

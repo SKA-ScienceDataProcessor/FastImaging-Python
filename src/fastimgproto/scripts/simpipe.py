@@ -122,12 +122,12 @@ def main(steady_source_list,
 
     # Now use UVW to generate visibilities from scratch...
     # Represent incoming data; includes transient sources, noise:
-    data_vis = visibility.calculated_summed_vis(
+    data_vis = visibility.visibilities_for_source_list(
         pointing_centre, source_list_w_transient, uvw_lambda)
     data_vis = visibility.add_gaussian_noise(vis_noise_level, data_vis)
 
     # Model vis; only steady sources from the catalog, noise free.
-    model_vis = visibility.calculated_summed_vis(
+    model_vis = visibility.visibilities_for_source_list(
         pointing_centre, steady_source_list, uvw_lambda)
 
     # Subtract model-generated visibilities from incoming data

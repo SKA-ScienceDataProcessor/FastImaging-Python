@@ -2,7 +2,6 @@ from __future__ import print_function
 import numpy as np
 import astropy.units as u
 import fastimgproto.visibility as visibility
-import pytest
 
 
 def test_complex_gaussian_noise_generation():
@@ -19,8 +18,8 @@ def test_complex_gaussian_noise_generation():
     for component_array in np.real(complex_noise_1jy), np.imag(complex_noise_1jy):
         mean = np.mean(component_array)
         std_dev = np.std(component_array)
-        print("Mean:", mean)
-        print("S.D.:", std_dev)
+        # print("Mean:", mean)
+        # print("S.D.:", std_dev)
         assert mean < 0.001
         assert np.fabs(std_dev - 1.0)< 0.02
 
@@ -31,8 +30,8 @@ def test_complex_gaussian_noise_generation():
     for component_array in np.real(complex_noise_5jy), np.imag(complex_noise_5jy):
         mean = np.mean(component_array)
         std_dev = np.std(component_array)
-        print("Mean:", mean)
-        print("S.D.:", std_dev)
+        # print("Mean:", mean)
+        # print("S.D.:", std_dev)
         assert mean < 0.006
         assert np.fabs(std_dev - 5.0)< 0.1
 

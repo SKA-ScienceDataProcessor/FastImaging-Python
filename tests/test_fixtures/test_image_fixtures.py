@@ -1,4 +1,4 @@
-from ..fixtures.image import (
+from fastimgproto.fixtures.image import (
     evaluate_model_on_pixel_grid,
     gaussian_point_source,
 )
