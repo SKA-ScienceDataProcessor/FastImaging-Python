@@ -30,4 +30,4 @@ def cli(fitsfile, detection, analysis):
     click.echo("Found the following sources:")
     for src in sfimage.islands:
         assert isinstance(src, IslandParams)
-        click.echo("({},{}):\t{}".format(src.xbar,src.ybar,src.peak_val))
+        click.echo("({},{}):\t{}".format(src.xbar, src.ybar, src.extrema_val))
