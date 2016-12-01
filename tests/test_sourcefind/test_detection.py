@@ -1,4 +1,7 @@
-import pytest
+from __future__ import print_function
+
+import numpy as np
+import scipy.ndimage as ndimage
 
 from fastimgproto.fixtures.image import (
     evaluate_model_on_pixel_grid,
@@ -6,7 +9,6 @@ from fastimgproto.fixtures.image import (
     uncorrelated_gaussian_noise_background
 )
 from fastimgproto.sourcefind.image import (SourceFindImage, _estimate_rms)
-import numpy as np
 
 ydim = 128
 xdim = 64
@@ -14,7 +16,7 @@ rms = 1.0
 bright_src = gaussian_point_source(x_centre=48.24, y_centre=52.66,
                                    amplitude=10.0)
 faint_src = gaussian_point_source(x_centre=32, y_centre=64, amplitude=3.5)
-negative_src = gaussian_point_source(x_centre=24.31, y_centre=32.157,
+negative_src = gaussian_point_source(x_centre=24.31, y_centre=28.157,
                                      amplitude=-10.0)
 
 
@@ -65,7 +67,8 @@ def test_basic_source_detection():
                          find_negative_sources=False)
     assert len(sf.islands) == 2
 
-@pytest.mark.xfail()
+
+
 def test_negative_source_detection():
     """
     Also need to detect 'negative' sources, i.e. where a source in the
@@ -83,8 +86,9 @@ def test_negative_source_detection():
                          rms_est=rms)
     assert len(sf.islands) == 1
     found_src = sf.islands[0]
-    # print(bright_src)
-    # print(src)
+    print()
+    print(negative_src)
+    print(found_src)
     assert np.abs(found_src.extremum_x_idx - negative_src.x_mean) < 0.5
     assert np.abs(found_src.extremum_y_idx - negative_src.y_mean) < 0.5
     assert np.abs(found_src.xbar - negative_src.x_mean) < 0.1
@@ -95,3 +99,8 @@ def test_negative_source_detection():
                          analysis_n_sigma=3,
                          rms_est=rms)
     assert len(sf.islands) == 2
+    positive_islands = [i for i in sf.islands if i.sign==1]
+    negative_islands = [i for i in sf.islands if i.sign==-1]
+    assert len(positive_islands) ==1
+    assert len(negative_islands) ==1
+    assert negative_islands[0]== found_src

@@ -30,8 +30,8 @@ class IslandParams(object):
         xbar (float): Barycentric centre in x-pixel index
         ybar(float): Barycentric centre in y-pixel index
     """
-    parent = attrib()
-    label_idx = attrib()
+    parent = attrib(cmp=False)
+    label_idx = attrib(cmp=False)
     sign = attrib(validator=_positive_negative_sign_validator)
     extremum_val = attrib()
     extremum_x_idx = attrib(default=None)
@@ -49,7 +49,7 @@ class IslandParams(object):
 
         )
         self.extremum_y_idx, self.extremum_x_idx = _extremum_pixel_index(
-            self.data)
+            self.data, self.sign)
         sum = self.sign * np.ma.sum(self.data)
         self.xbar = np.ma.sum(self.parent.xgrid * self.sign * self.data) / sum
         self.ybar = np.ma.sum(self.parent.ygrid * self.sign * self.data) / sum
@@ -59,11 +59,15 @@ def _label_mask(labels_map, label_num):
     return ~(labels_map == label_num)
 
 
-def _extremum_pixel_index(masked_image):
+def _extremum_pixel_index(masked_image,sign):
     """
-    Returns max pixel index in np array ordering, i.e. (y_max, x_max)
+    Returns max/min pixel index in np array ordering, i.e. (y_max, x_max)
     """
-    return np.unravel_index(np.ma.argmax(masked_image),
+    if sign==1:
+        extremum_func = np.ma.argmax
+    elif sign==-1:
+        extremum_func = np.ma.argmin
+    return np.unravel_index(extremum_func(masked_image),
                             masked_image.shape)
 
 
@@ -98,15 +102,11 @@ class SourceFindImage(object):
 
         # Label connected regions
 
+        self.label_map, label_extrema = self._label_detection_islands(1)
         if find_negative_sources:
-            pos_label_map, pos_label_extrema = self._label_detection_islands(1)
             neg_label_map, neg_label_extrema = self._label_detection_islands(-1)
-            self.label_map = self._combine_label_maps(pos_label_map,
-                                                      neg_label_map)
-            label_extrema = self._combine_label_extrema(pos_label_extrema,
-                                                        neg_label_extrema)
-        else:
-            self.label_map, label_extrema = self._label_detection_islands(1)
+            self.label_map += neg_label_map
+            label_extrema.update(neg_label_extrema)
 
         self.islands = []
         for l_idx, l_extremum in label_extrema.items():
@@ -166,6 +166,13 @@ class SourceFindImage(object):
                 valid_label_extrema[label] = ex_val
             else:
                 label_map[label_map == label] = 0.
+
+        if sign == -1:
+            # If extracting negative sources, flip the sign of the indices
+            valid_label_extrema = {-1 * k: valid_label_extrema[k]
+                                   for k in valid_label_extrema}
+            # ... and the corresponding label map:
+            label_map = -1 * label_map
         return label_map, valid_label_extrema
 
 
