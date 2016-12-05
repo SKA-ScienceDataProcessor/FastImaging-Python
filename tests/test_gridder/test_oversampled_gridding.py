@@ -27,7 +27,7 @@ def test_fractional_coord_to_oversampled_index_math():
     assert (calculate_oversampled_kernel_indices(
         subpixel_coord=subpix_offset, oversampling=oversampling) == 3).all()
 
-    # OK, now demonstrate values with oversampling of 0.5, which has easy
+    # OK, now demonstrate values with oversampling of 5, which has easy
     # numbers to calculate since 1/5 = 0.2
     oversampling = 5
     io_pairs = np.array([
