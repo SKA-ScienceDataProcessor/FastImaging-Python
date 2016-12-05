@@ -171,12 +171,10 @@ def calculate_oversampled_kernel_indices(subpixel_coord, oversampling):
             dtype: float, shape: `(n_vis, 2)`.
         oversampling (int): How many oversampled pixels to one regular pixel.
     Returns:
-        oversampled_kernel_idx (numpy.ndarray): Corresponding oversampled pixel
-        indexes. These are in oversampled pixel widths from the kernel
-        centre pixel, to a maximum of half a regular pixel, so they have
-        integer values ranging  from
-        ``-oversampling/2`` to ``oversampling/2``.
-        dtype: int, shape: `(n_vis, 2)`.
+        numpy.ndarray: Corresponding oversampled pixel indexes. These are in oversampled pixel
+        widths from the kernel centre pixel, to a maximum of half a regular
+        pixel, so they have integer values ranging  from ``-oversampling/2`` to
+        ``oversampling/2``. [Dtype: ``int``, shape: ``(n_vis, 2)``].
     """
     subpixel_coord = np.atleast_1d(subpixel_coord)
     assert (-0.5 <= subpixel_coord).all()
@@ -207,8 +205,7 @@ def populate_kernel_cache(kernel_func, support, oversampling):
             cache_size = ((oversampling // 2 * 2) + 1)**2
 
     Returns:
-        cache (dict): Dictionary mapping oversampling-pixel offsets to
-        normalised kernels.
+        dict: Dictionary mapping oversampling-pixel offsets to normalised kernels.
     """
     # We use floordiv and multiply to give sensible results for both odd / even
     # oversampling values:
