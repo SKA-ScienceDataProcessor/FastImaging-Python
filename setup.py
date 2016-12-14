@@ -5,7 +5,7 @@ import versioneer
 
 install_requires = [
     'astropy',
-    'attrs',
+    'attrs>=16.3.0',
     'click',
     'drive-casa>=0.7.6',
     'pandas',
@@ -34,6 +34,7 @@ setup(
         fastimg_simpipe=fastimgproto.scripts.simpipe:cli
         fastimg_simple_imager=fastimgproto.scripts.simple_imager:cli
         fastimg_simulate_vis_with_casa=fastimgproto.scripts.simulate_vis_with_casa:cli
+        fastimg_simulate_vis=fastimgproto.scripts.simulate_vis:cli
         fastimg_sourcefind=fastimgproto.scripts.sourcefind:cli
         ''',
 )

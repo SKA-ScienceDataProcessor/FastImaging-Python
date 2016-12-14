@@ -76,6 +76,7 @@ autoclass_content = 'class'
 nitpicky = True
 nitpick_ignore = [
     ("py:obj", "numpy.ndarray"),
+    ("py:obj", "astropy.units.Quantity"),
 ]
 
 # -- Options for HTML output ----------------------------------------------
@@ -174,4 +175,10 @@ html_show_sphinx = False
 htmlhelp_basename = 'ska-fastimgprotodoc'
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/2.7', None),
+    'astropy': ('http://docs.astropy.org/en/stable/', None)
+}
+
+# For quick building of regular docs during development:
+#nbsphinx_execute = 'never'

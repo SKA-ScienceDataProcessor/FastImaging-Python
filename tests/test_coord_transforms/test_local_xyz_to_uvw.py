@@ -1,6 +1,7 @@
-import numpy as np
 import astropy.units as u
-from fastimgproto.coord_transforms import local_xyz_to_uvw
+import numpy as np
+
+from fastimgproto.coord_transforms import xyz_to_uvw_rotation_matrix
 
 # Define the basis vectors with component co-ordinates in their
 # own systems:
@@ -11,8 +12,10 @@ e_w = e_z = np.array([0, 0, 1], dtype=np.float_)
 
 def check_uvw_results_as_expected(io_pairs, lha, dec, tolerance=1e-10):
     for xyz_vec, expected_uvw_vec in io_pairs:
-        calculated_uvw_vec = local_xyz_to_uvw(xyz_vec, lha, dec)
-        assert (np.fabs( expected_uvw_vec - calculated_uvw_vec)<tolerance).all()
+        rotation = xyz_to_uvw_rotation_matrix(lha, dec)
+        calculated_uvw_vec = np.dot(rotation, xyz_vec)
+        assert (
+        np.fabs(expected_uvw_vec - calculated_uvw_vec) < tolerance).all()
 
 
 # Some useful invariants:
@@ -39,7 +42,7 @@ def test_equatorial_at_zero_lha():
         (e_z, e_v),
     ]
     check_uvw_results_as_expected(io_pairs,
-                                  lha=0*u.degree, dec = 0 *u.degree)
+                                  lha=0 * u.degree, dec=0 * u.degree)
 
 
 def test_equatorial_at_lha_minus_6():
@@ -90,11 +93,12 @@ def test_ncp():
 
     (North Celestial Pole).
 
-    Formally we'll define this as a source at LHA, Dec of ``(0, 90*u.deg)``,
-    but of course LHA is ill defined at the pole, same for 'East'.
+    Formally we'll define this as a source at LHA, Dec of ``(0, 90*u.deg)``.
 
-    In practice, if a pointing is actually at the NCP you may as well
-    arbitrarily assign LHA=0.
+    Note that even though the Hour angle of a *source* at the pole is
+    ill-defined, the hour-angle of the transformation is both well defined and
+    critically important, as it determines the orientation of the U-V plane
+    with regard to the orientation of the X-Y plane.
 
     The mapping is then as follows:
     X (local celestial-equator transit) -> -V( declination of  (pi/2 - source_dec) )
@@ -139,15 +143,16 @@ def test_vectorial_operation():
     It's desirable to make use of Numpy's vector optimizations and transform
     many XYZ positions in one go, so let's see if that works correctly:
     """
-    lha=123*u.degree
-    dec = 42.3213*u.degree
+    lha = 123 * u.degree
+    dec = 42.3213 * u.degree
+    rotation = xyz_to_uvw_rotation_matrix(lha, dec)
 
-    xyz_vec_tuple= (e_x, e_x, e_y, e_z, e_y, e_z)
+    xyz_vec_tuple = (e_x, e_x, e_y, e_z, e_y, e_z)
 
     # Construct a known-good answer from each basis vector in turn:
     uvw_expected_results = []
     for vec in xyz_vec_tuple:
-        uvw_expected_results.append(local_xyz_to_uvw(vec, lha, dec))
+        uvw_expected_results.append(np.dot(rotation, vec))
 
     # By default, our 'vectors' are numpy 1-d horizontal arrays.
     # So, we vstack them, then transpose to get the correct orientation.
@@ -156,8 +161,9 @@ def test_vectorial_operation():
     assert xyz_vec_array.shape == (3, len(xyz_vec_tuple))
 
     # We then get a 3xn matrix of UVW vectors:
-    uvw_vectorized_results = local_xyz_to_uvw(xyz_vec_array, lha, dec)
+    uvw_vectorized_results = np.dot(rotation, xyz_vec_array)
     assert uvw_vectorized_results.shape == (3, len(xyz_vec_tuple))
+
     # Transpose back to get easy 'tuple-style' indexing into the collection
     # of vectors:
     uvw_vectorized_results = uvw_vectorized_results.T

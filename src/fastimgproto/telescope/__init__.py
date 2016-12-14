@@ -1,0 +1,1 @@
+from fastimgproto.telescope.base import Telescope

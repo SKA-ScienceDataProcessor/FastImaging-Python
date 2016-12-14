@@ -10,7 +10,7 @@ def test_complex_gaussian_noise_generation():
     and complex components, by asserting mean / std.dev. are close to expected
     values.
     """
-    complex_zeroes = np.zeros(1e6, dtype=np.complex128)
+    complex_zeroes = np.zeros(int(1e6), dtype=np.complex_)
     complex_noise_1jy = visibility.add_gaussian_noise(noise_level=1 * u.Jy,
                                                   vis=complex_zeroes,
                                                   seed=1234
