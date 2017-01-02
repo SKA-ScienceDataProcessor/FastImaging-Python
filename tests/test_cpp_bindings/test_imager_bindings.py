@@ -19,7 +19,7 @@ def test_cpp_imager_results_parity():
     kernel_func_name = CppKernelFuncs.gauss_sinc
 
     image_size = 1024 * u.pix
-    cell_size = 3. * u.arcsec
+    cell_size = 1. * u.arcsec
     py_img, py_beam = image_visibilities(
         vis=vis,
         uvw_lambda=uvw_lambda,

@@ -14,6 +14,21 @@ install_requires = [
     'scipy',
 ]
 
+
+entry_points=('''
+        [console_scripts]
+        fastimg_casa_ms_to_npz=fastimgproto.scripts.casa.ms_to_npz:cli
+        fastimg_casa_compare_imagers=fastimgproto.scripts.casa.compare_imagers:cli
+        fastimg_casa_simulate_vis=fastimgproto.scripts.casa.simulate_vis:cli
+        fastimg_extract_lsm=fastimgproto.scripts.extract_lsm:cli
+        fastimg_image=fastimgproto.scripts.image:cli
+        fastimg_make_config=fastimgproto.scripts.config:make_config
+        fastimg_reduce=fastimgproto.scripts.reduce:cli
+        fastimg_simulate_data=fastimgproto.scripts.simulate_data:cli
+        fastimg_sourcefind=fastimgproto.scripts.sourcefind:cli
+        ''')
+
+
 setup(
     name="fastimgproto",
     version=versioneer.get_version(),
@@ -26,15 +41,5 @@ setup(
     author_email="github@timstaley.co.uk",
     # url="https://github.com/",
     install_requires=install_requires,
-    entry_points='''
-        [console_scripts]
-        fastimg_casavis_to_npz=fastimgproto.scripts.casavis_to_npz:cli
-        fastimg_compare_imagers=fastimgproto.scripts.compare_imagers:cli
-        fastimg_extract_lsm=fastimgproto.scripts.extract_lsm:cli
-        fastimg_simpipe=fastimgproto.scripts.simpipe:cli
-        fastimg_simple_imager=fastimgproto.scripts.simple_imager:cli
-        fastimg_simulate_vis_with_casa=fastimgproto.scripts.simulate_vis_with_casa:cli
-        fastimg_simulate_vis=fastimgproto.scripts.simulate_vis:cli
-        fastimg_sourcefind=fastimgproto.scripts.sourcefind:cli
-        ''',
+    entry_points=entry_points,
 )
