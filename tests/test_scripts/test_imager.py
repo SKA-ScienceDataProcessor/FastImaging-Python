@@ -11,7 +11,7 @@ from fastimgproto.scripts.image import (
     cli as  imager_cli
 )
 
-def test_simple_imager():
+def test_imager():
     runner = CliRunner()
     output_filename = 'image.npz'
     with runner.isolated_filesystem():

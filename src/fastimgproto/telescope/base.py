@@ -50,8 +50,8 @@ class Telescope(object):
     ant_labels = attrib(default=None)
     ant_itrf_xyz = attrib(default=None, validator=_validator_optional_ndarray)
     ant_local_xyz = attrib(default=None, validator=_validator_optional_ndarray)
-    baseline_local_xyz = attrib(init=False)
-    baseline_labels = attrib(init=False)
+    baseline_local_xyz = attrib(init=False, default=None)
+    baseline_labels = attrib(init=False, default=None)
 
     def __attrs_post_init__(self):
         """

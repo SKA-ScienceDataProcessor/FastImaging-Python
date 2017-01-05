@@ -19,7 +19,7 @@ default_config_path = 'fastimg_config.json'
 
 
 @click.command()
-@click.argument('config_path', type=click.File(mode='wb'),
+@click.argument('config_path', type=click.File(mode='w'),
                 default=default_config_path)
 def make_config(config_path):
     """
