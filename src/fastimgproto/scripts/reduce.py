@@ -82,7 +82,7 @@ def main(uvw_lambda,
                                             cell_size=cell_size,
                                             kernel_func=kernel_func,
                                             kernel_support=kernel_support,
-                                            kernel_oversampling=None)
+                                            kernel_exact=True)
 
     sfimage = SourceFindImage(data=np.real(image),
                               detection_n_sigma=detection_n_sigma,

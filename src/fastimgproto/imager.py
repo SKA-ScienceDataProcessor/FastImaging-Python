@@ -10,7 +10,8 @@ def fft_to_image_plane(uv_grid):
 def image_visibilities(vis, uvw_lambda,
                        image_size, cell_size,
                        kernel_func, kernel_support,
-                       kernel_oversampling,
+                       kernel_exact=True,
+                       kernel_oversampling=0,
                        normalize=True):
     """
     Args:
@@ -34,6 +35,11 @@ def image_visibilities(vis, uvw_lambda,
             which convolution takes place. `Box width in pixels = 2*support+1`.
             (The central pixel is the one nearest to the UV co-ordinates.)
             (This is sometimes known as the 'half-support')
+        kernel_exact (bool): Calculate exact kernel-values for every UV-sample.
+        kernel_oversampling (int): Controls kernel-generation if
+            ``exact==False``. Larger values give a finer-sampled set of
+            pre-cached kernels.
+        raise_bounds (bool): Raise an exception if any of the UV
         kernel_oversampling (int): (Or None). Controls kernel-generation,
             see :func:`fastimgproto.gridder.gridder.convolve_to_grid` for
             details.
@@ -65,6 +71,7 @@ def image_visibilities(vis, uvw_lambda,
                                              image_size=image_size_int,
                                              uv=uv_in_pixels,
                                              vis=vis,
+                                             exact=kernel_exact,
                                              oversampling=kernel_oversampling
                                              )
     image = fft_to_image_plane(vis_grid)

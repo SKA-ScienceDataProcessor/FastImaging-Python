@@ -52,8 +52,7 @@ def test_bounds_checking():
         grid = convolve_to_grid(kernel_func,
                                 support=support,
                                 image_size=n_image,
-                                uv=uv, vis=vis,
-                                oversampling=None)
+                                uv=uv, vis=vis)
 
     grid, _ = convolve_to_grid(kernel_func,
                                support=support,
@@ -75,8 +74,7 @@ def test_multi_pixel_pillbox():
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv, vis=vis,
-                                               oversampling=None)
+                                               uv=uv, vis=vis)
     assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
@@ -108,8 +106,7 @@ def test_small_pillbox():
     grid, _ = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=uv, vis=vis,
-                               oversampling=None)
+                               uv=uv, vis=vis)
     assert grid.sum() == vis.sum()
     # This time we're on a mid-point, with a smaller pillbox
     # so we should get a 2x2 output
@@ -143,8 +140,7 @@ def test_multiple_complex_vis():
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv, vis=vis,
-                                               oversampling=None)
+                                               uv=uv, vis=vis)
     assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
@@ -182,8 +178,7 @@ def test_nearby_complex_vis():
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv, vis=vis,
-                                               oversampling=None)
+                                               uv=uv, vis=vis)
     assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
@@ -220,8 +215,7 @@ def test_triangle():
     grid, _ = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=uv, vis=vis,
-                               oversampling=None)
+                               uv=uv, vis=vis)
 
     kernel = Kernel(kernel_func=kernel_func, support=support,
                     offset=subpix_offset[0],

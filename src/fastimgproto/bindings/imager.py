@@ -15,7 +15,8 @@ def cpp_image_visibilities(vis, uvw_lambda,
                            kernel_func_name=CppKernelFuncs.gauss_sinc,
                            kernel_trunc_radius=3.0,
                            kernel_support=3,
-                           kernel_oversampling=None,
+                           kernel_exact=True,
+                           kernel_oversampling=0,
                            normalize=True):
     """
     Convenience wrapper over _cpp_image_visibilities.
@@ -80,7 +81,7 @@ def cpp_image_visibilities(vis, uvw_lambda,
     uv_in_pixels = uvw_in_pixels[:, :2]
 
     # subroutine = _cpp_image_visibilities
-    subroutine = _python_image_visibilities
+    subroutine = _python_image_visibilities # <-- Until CPP bindings implemented
     (image, beam) = _python_image_visibilities(
         vis=vis,
         uv_pixels=uv_in_pixels,
@@ -88,6 +89,7 @@ def cpp_image_visibilities(vis, uvw_lambda,
         kernel_func_name=kernel_func_name,
         kernel_trunc_radius=kernel_trunc_radius,
         kernel_support=kernel_support,
+        kernel_exact=kernel_exact,
         kernel_oversampling=kernel_oversampling,
         normalize=normalize,
     )
@@ -101,7 +103,8 @@ def _cpp_image_visibilities(vis,
                             kernel_func_name,
                             kernel_trunc_radius,
                             kernel_support,
-                            kernel_oversampling,
+                            kernel_exact=True,
+                            kernel_oversampling=0,
                             normalize=True
                             ):
     pass
@@ -114,7 +117,8 @@ def _python_image_visibilities(vis,
                                kernel_func_name,
                                kernel_trunc_radius,
                                kernel_support,
-                               kernel_oversampling,
+                               kernel_exact=True,
+                               kernel_oversampling=0,
                                normalize=True
                                ):
     """
@@ -136,9 +140,10 @@ def _python_image_visibilities(vis,
             which convolution takes place. `Box width in pixels = 2*support+1`.
             (The central pixel is the one nearest to the UV co-ordinates.)
             (This is sometimes known as the 'half-support')
-        kernel_oversampling (int): (Or None). Controls kernel-generation,
-            see :func:`fastimgproto.gridder.gridder.convolve_to_grid` for
-            details.
+        kernel_exact (bool): Calculate exact kernel-values for every UV-sample.
+        kernel_oversampling (int): Controls kernel-generation if
+            ``exact==False``. Larger values give a finer-sampled set of
+            pre-cached kernels.
         normalize (bool): Whether or not the returned image and beam
             should be normalized such that the beam peaks at a value of
             1.0 Jansky. You normally want this to be true, but it may be
@@ -160,6 +165,7 @@ def _python_image_visibilities(vis,
                                              image_size=image_size,
                                              uv=uv_pixels,
                                              vis=vis,
+                                             exact=kernel_exact,
                                              oversampling=kernel_oversampling
                                              )
     image = fft_to_image_plane(vis_grid)

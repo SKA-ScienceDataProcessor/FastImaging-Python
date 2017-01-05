@@ -27,8 +27,8 @@ def test_cpp_imager_results_parity():
         cell_size=cell_size,
         kernel_func = kernel_func,
         kernel_support=support,
-        kernel_oversampling=None,
-        normalize=True
+        kernel_exact=True,
+        normalize=True,
     )
 
     cpp_img, cpp_beam = cpp_image_visibilities(
@@ -39,7 +39,7 @@ def test_cpp_imager_results_parity():
         kernel_func_name=kernel_func_name,
         kernel_trunc_radius=trunc,
         kernel_support=support,
-        kernel_oversampling=None,
+        kernel_exact=True,
         normalize=True
     )
 

@@ -46,7 +46,9 @@ def cli(config_json, in_vis, out_img):
                                             cell_size=cell_size,
                                             kernel_func=kernel_func,
                                             kernel_support=kernel_support,
-                                            kernel_oversampling=None)
+                                            kernel_exact=True,
+                                            # kernel_oversampling=None
+                                            )
 
     np.savez(out_img, image=image, beam=beam)
     sys.exit(0)

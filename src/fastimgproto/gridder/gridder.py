@@ -11,19 +11,20 @@ logger = logging.getLogger(__name__)
 def convolve_to_grid(kernel_func, support,
                      image_size,
                      uv, vis,
-                     oversampling=None,
+                     exact=True,
+                     oversampling=0,
                      raise_bounds=True):
     """
     Grid visibilities, calculating the exact kernel distribution for each.
 
-    If ``oversampling=None`` then exact gridding is used, i.e. the kernel is
+    If ``exact == True`` then exact gridding is used, i.e. the kernel is
     recalculated for each visibility, with precise sub-pixel offset according to
-    that visibility's UV co-ordinates. If an integer value is supplied, then
-    instead of recalculating the kernel for each sub-pixel location, we
-    pre-generate an oversampled kernel ahead of time - so e.g. for an
-    oversampling of 5, the kernel is pre-generated at 0.2 pixel-width offsets.
-    We then pick the pre-generated kernel corresponding to the sub-pixel offset
-    nearest to that of the visibility.
+    that visibility's UV co-ordinates. Otherwise, instead of recalculating the
+    kernel for each sub-pixel location, we pre-generate an oversampled kernel
+    ahead of time - so e.g. for an oversampling of 5, the kernel is
+    pre-generated at 0.2 pixel-width offsets. We then pick the pre-generated
+    kernel corresponding to the sub-pixel offset nearest to that of the
+    visibility.
 
     Kernel pre-generation results in improved performance, particularly with
     large numbers of visibilities and complex kernel functions, at the cost of
@@ -50,8 +51,9 @@ def convolve_to_grid(kernel_func, support,
             assumed ordering is u-then-v, i.e. `u, v = uv[idx]`
         vis (numpy.ndarray): Complex visibilities.
             1d array, shape: `(n_vis,)`.
-        oversampling (int): (Or None). Controls kernel-generation, see function
-            description for details.
+        exact (bool): Calculate exact kernel-values for every UV-sample.
+        oversampling (int): Controls kernel-generation if ``exact==False``.
+            Larger values give a finer-sampled set of pre-cached kernels.
         raise_bounds (bool): Raise an exception if any of the UV
             samples lie outside (or too close to the edge) of the grid.
 
@@ -65,6 +67,10 @@ def convolve_to_grid(kernel_func, support,
 
     """
     assert len(uv) == len(vis)
+    # Check for sensible combinations of exact / oversampling parameter-values:
+    if not exact:
+        assert oversampling>=1
+
     # Calculate nearest integer pixel co-ords ('rounded positions')
     uv_rounded = np.around(uv)
     # Calculate sub-pixel vector from rounded-to-precise positions
@@ -88,23 +94,23 @@ def convolve_to_grid(kernel_func, support,
     # Use either `1.0` or `1.0 +0j` depending on input dtype:
     typed_one = np.array(1, dtype=vis.dtype)
 
-    if oversampling is not None:
+    if not exact:
         kernel_cache = populate_kernel_cache(
             kernel_func, support, oversampling)
         oversampled_offset = calculate_oversampled_kernel_indices(
             uv_frac, oversampling)
 
-    for idx, vis_value in np.ndenumerate(vis[good_vis_idx]):
-        gc_x, gc_y = kernel_centre_on_grid[idx]
+    for v_idx, vis_value in np.ndenumerate(vis[good_vis_idx]):
+        gc_x, gc_y = kernel_centre_on_grid[v_idx]
         # Generate a convolution kernel with the precise offset required:
         xrange = slice(gc_x - support, gc_x + support + 1)
         yrange = slice(gc_y - support, gc_y + support + 1)
-        if oversampling is None:
+        if exact:
             kernel = Kernel(kernel_func=kernel_func, support=support,
-                            offset=uv_frac[idx])
+                            offset=uv_frac[v_idx])
             normed_kernel_array = kernel.array
         else:
-            normed_kernel_array = kernel_cache[oversampled_offset[idx]].array
+            normed_kernel_array = kernel_cache[oversampled_offset[v_idx]].array
 
         vis_grid[yrange, xrange] += vis_value * normed_kernel_array
         sampling_grid[yrange, xrange] += typed_one * normed_kernel_array
