@@ -44,23 +44,45 @@ def test_bounds_checking():
     # n_image = 8 then the co-ords in the u/x-direction are:
     # [-4, -3, -2, -1, 0, 1, 2, 3 ]
     # Support = 2 takes this over the edge (since -3 -2 = -5):
-    uv = np.array([(-3., 0)])
-    vis = np.ones(len(uv), dtype=np.float_)
+    bad_uv = np.array([(-3., 0)])
+    vis = np.ones(len(bad_uv), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(1.5)
 
     with pytest.raises(ValueError):
         grid = convolve_to_grid(kernel_func,
                                 support=support,
                                 image_size=n_image,
-                                uv=uv, vis=vis)
+                                uv=bad_uv, vis=vis)
 
     grid, _ = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=uv, vis=vis,
+                               uv=bad_uv, vis=vis,
                                raise_bounds=False
                                )
     assert grid.sum() == 0.
+
+    # Now check we're filtering indices in the correct order
+    # The mixed
+    good_uv = np.array([(0., 0.)])
+    mixed_uv = np.array([(-3., 0),
+                         (0., 0.)])
+    good_grid, _ = convolve_to_grid(kernel_func,
+                                    support=support,
+                                    image_size=n_image,
+                                    uv=good_uv,
+                                    vis=np.ones(len(good_uv), dtype=np.float_),
+                                    raise_bounds=False
+                                    )
+    mixed_grid, _ = convolve_to_grid(kernel_func,
+                                     support=support,
+                                     image_size=n_image,
+                                     uv=mixed_uv,
+                                     vis=np.ones(len(mixed_uv), dtype=np.float_),
+                                     raise_bounds=False
+                                     )
+
+    assert (good_grid == mixed_grid).all()
 
 
 def test_multi_pixel_pillbox():
