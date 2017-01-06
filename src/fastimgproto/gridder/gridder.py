@@ -100,19 +100,19 @@ def convolve_to_grid(kernel_func, support,
         oversampled_offset = calculate_oversampled_kernel_indices(
             uv_frac, oversampling)
 
-    for v_idx, vis_value in np.ndenumerate(vis[good_vis_idx]):
-        gc_x, gc_y = kernel_centre_on_grid[v_idx]
+    for idx in good_vis_idx:
+        gc_x, gc_y = kernel_centre_on_grid[idx]
         # Generate a convolution kernel with the precise offset required:
         xrange = slice(gc_x - support, gc_x + support + 1)
         yrange = slice(gc_y - support, gc_y + support + 1)
         if exact:
             kernel = Kernel(kernel_func=kernel_func, support=support,
-                            offset=uv_frac[v_idx])
+                            offset=uv_frac[idx])
             normed_kernel_array = kernel.array
         else:
-            normed_kernel_array = kernel_cache[oversampled_offset[v_idx]].array
+            normed_kernel_array = kernel_cache[oversampled_offset[idx]].array
 
-        vis_grid[yrange, xrange] += vis_value * normed_kernel_array
+        vis_grid[yrange, xrange] += vis[idx]* normed_kernel_array
         sampling_grid[yrange, xrange] += typed_one * normed_kernel_array
     return vis_grid, sampling_grid
 
@@ -135,6 +135,11 @@ def _bounds_check_kernel_centre_locations(uv, kernel_centre_indices,
         image_size (int): Image width in pixels
         raise_if_bad (bool): If true, throw a ValueError if any bad locations
             are found, otherwise just log a warning message.
+
+    Return:
+        list: List of indices for 'good' (in-bounds) positions. Note this is
+        a list of integer index values, of length `n_good_positions`.
+        (Not to be confused with a boolean mask of length `n_vis`).
     """
 
     out_of_bounds_bool = (
@@ -143,8 +148,8 @@ def _bounds_check_kernel_centre_locations(uv, kernel_centre_indices,
         | (kernel_centre_indices[:, 0] + support >= image_size)
         | (kernel_centre_indices[:, 1] + support >= image_size)
     )
-    out_of_bounds_idx = np.nonzero(out_of_bounds_bool)
-    good_vis_idx = np.nonzero(np.invert(out_of_bounds_bool))
+    out_of_bounds_idx = np.nonzero(out_of_bounds_bool)[0]
+    good_vis_idx = np.nonzero(np.invert(out_of_bounds_bool))[0]
 
     if out_of_bounds_bool.any():
         bad_uv = uv[out_of_bounds_idx]
