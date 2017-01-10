@@ -163,7 +163,24 @@ class Telescope(object):
         rotation = xyz_to_uvw_rotation_matrix(local_hour_angle, dec)
         return np.dot(rotation, self.baseline_local_xyz.T).T
 
-    def uvw_tracking_skycoord(self, pointing_centre, obs_times):
+    def _uvw_tracking_skycoord_by_lha(self, pointing_centre, obs_times):
+        """
+        Calculate the UVW-array towards pointing centre for each obs_time.
+
+        Each obs_time corresponds to a local hour-angle (LHA) for the given
+        pointing centre. This function returns an OrderedDict mapping those
+        LHA's (in same ordering as obs_times) to an ndarray of uvw-coords
+        corresponding to that instantaneous observation.
+
+        Args:
+            pointing_centre (astropy.coords.SkyCoord): Pointing centre co-ords
+                for UVW calculation.
+            obs_times (list): List of :class:`astropy.time.Time`, the instants
+                of observation.
+        Returns:
+            dict: Mapping from LHA (astropy.coords.Longitude)-> UVW-ndarray,
+            where UVW has (implicit) units of metres.
+        """
         lha_uvw_map = OrderedDict()
         for time in obs_times:
             lha = self.lha(pointing_centre.ra, time)
@@ -171,6 +188,27 @@ class Telescope(object):
                 local_hour_angle=lha, dec=pointing_centre.dec
             )
         return lha_uvw_map
+
+    def uvw_tracking_skycoord(self, pointing_centre, obs_times):
+        """
+        Calculate the UVW-array towards pointing centre for all obs_times.
+
+        This function calculates an ndarray of uvw-coords corresponding to
+        an instantaneous observation at each of ``obs_times``, then
+        concatenates the results to produce an ndarray of length
+        ``n_baselines * len(obs_times)``
+
+        Args:
+            pointing_centre (astropy.coords.SkyCoord): Pointing centre co-ords
+                for UVW calculation.
+            obs_times (list): List of :class:`astropy.time.Time`, the instants
+                of observation.
+        Returns:
+            numpy.ndarray: UVW-ndarray, where UVW has (implicit) units of metres.
+        """
+        lha_uvw_map = self._uvw_tracking_skycoord_by_lha(
+            pointing_centre, obs_times)
+        return np.concatenate(lha_uvw_map.values())
 
 
 def generate_baselines_and_labels(antenna_positions, antenna_labels):
