@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+from collections import OrderedDict
 from itertools import combinations
 
 import astropy.io.ascii as ascii
@@ -9,10 +10,10 @@ import numpy as np
 from astropy.coordinates import (Latitude, Longitude, EarthLocation, )
 from astropy.table import Table
 from attr import attrib, attrs
-
 from fastimgproto.coords import (
+    time_of_next_transit,
     xyz_to_uvw_rotation_matrix,
-    z_rotation_matrix
+    z_rotation_matrix,
 )
 
 _validator_optional_ndarray = attr.validators.optional(
@@ -98,6 +99,19 @@ class Telescope(object):
             ant_local_xyz=ant_local_xyz,
         )
 
+    def lha(self, ra, time):
+        """
+        Calculate the local hour angle of a target-RA at a given time
+
+        Args:
+            ra (astropy.coordinates.Longitude): Right ascension
+            time (astropy.time.Time): Timestamp
+
+        Returns:
+            astropy.coordinates.Longitude: Local Hour Angle of target-RA.
+        """
+        return self.lst(time) - ra
+
     def lst(self, time):
         """
         Calculate the local sidereal time at the telescope
@@ -106,8 +120,29 @@ class Telescope(object):
             time (astropy.time.Time): Global timestamp
 
         Returns:
+            astropy.coordinates.Longitude: Local sidereal time expressed as
+            an angle-Quantity.
+        """
+        return time.sidereal_time('apparent',
+                                  longitude=self.longitude)
+
+    def next_transit(self, target_ra, start_time, ):
+        """
+        Wrapper around :py:func:`.time_of_next_transit`
+
+        See :py:func:`.time_of_next_transit` for details.
+
+        Args:
+            target_ra (astropy.coordinates.Longitude): Right ascension of
+                sky-target.
+            start_time (astropy.time.Time): Time to start from.
+        Returns:
+            astropy.time.Time: Approximate time of the next transit
 
         """
+        return time_of_next_transit(observer_longitude=self.longitude,
+                                    target_ra=target_ra,
+                                    start_time=start_time)
 
     def uvw_at_local_hour_angle(self, local_hour_angle, dec):
         """
@@ -128,8 +163,14 @@ class Telescope(object):
         rotation = xyz_to_uvw_rotation_matrix(local_hour_angle, dec)
         return np.dot(rotation, self.baseline_local_xyz.T).T
 
-    def uvw_at_skycoord_and_time(self, pointing_centre, utc_time):
-        pass
+    def uvw_tracking_skycoord(self, pointing_centre, obs_times):
+        lha_uvw_map = OrderedDict()
+        for time in obs_times:
+            lha = self.lha(pointing_centre.ra, time)
+            lha_uvw_map[lha] = self.uvw_at_local_hour_angle(
+                local_hour_angle=lha, dec=pointing_centre.dec
+            )
+        return lha_uvw_map
 
 
 def generate_baselines_and_labels(antenna_positions, antenna_labels):
@@ -238,4 +279,3 @@ def parse_itrf_ascii_to_xyz_and_labels(tabledata):
     xyz = hstack_table_columns_as_ndarray(tbl.columns[:3]) * u.m
     labels = tbl['label'].data
     return xyz, labels
-

@@ -2,7 +2,7 @@ import astropy.units as u
 import numpy as np
 
 
-def time_of_next_transit(start_time, observer_longitude, target_ra,
+def time_of_next_transit(observer_longitude, target_ra, start_time,
                          tolerance=0.02 * u.arcsec):
     """
     Calculate time, ``t`` when the local-hour-angle of target will be 0.
@@ -15,11 +15,11 @@ def time_of_next_transit(start_time, observer_longitude, target_ra,
     time-period.
 
     Args:
-        start_time (astropy.time.Time): Time to start from.
         observer_longitude (astropy.coordinates.Longitude): Longitude
             of position on Earth
         target_ra (astropy.coordinates.Longitude): Right ascension of
             sky-target.
+        start_time (astropy.time.Time): Time to start from.
         tolerance (astropy.units.Quantity): If target's LHA is within
             ``tolerance`` of zero at ``start_time``, simply return
             ``start_time``. Otherwise look for the next transit.
