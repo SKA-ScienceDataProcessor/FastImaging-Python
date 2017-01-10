@@ -8,6 +8,6 @@ API Reference
    :maxdepth: 4
 
 
-   coord_transforms
+   coords
    gridder
    telescope

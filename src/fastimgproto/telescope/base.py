@@ -10,7 +10,7 @@ from astropy.coordinates import (Latitude, Longitude, EarthLocation, )
 from astropy.table import Table
 from attr import attrib, attrs
 
-from fastimgproto.coord_transforms import (
+from fastimgproto.coords import (
     xyz_to_uvw_rotation_matrix,
     z_rotation_matrix
 )
@@ -97,6 +97,17 @@ class Telescope(object):
             ant_itrf_xyz=ant_itrf_xyz,
             ant_local_xyz=ant_local_xyz,
         )
+
+    def lst(self, time):
+        """
+        Calculate the local sidereal time at the telescope
+
+        Args:
+            time (astropy.time.Time): Global timestamp
+
+        Returns:
+
+        """
 
     def uvw_at_local_hour_angle(self, local_hour_angle, dec):
         """
@@ -227,3 +238,4 @@ def parse_itrf_ascii_to_xyz_and_labels(tabledata):
     xyz = hstack_table_columns_as_ndarray(tbl.columns[:3]) * u.m
     labels = tbl['label'].data
     return xyz, labels
+

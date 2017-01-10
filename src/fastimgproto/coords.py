@@ -1,5 +1,48 @@
-import numpy as np
 import astropy.units as u
+import numpy as np
+
+
+def time_of_next_transit(start_time, observer_longitude, target_ra,
+                         tolerance=0.02 * u.arcsec):
+    """
+    Calculate time, ``t`` when the local-hour-angle of target will be 0.
+
+    (Such that ``start_time <= t < start_time + 24*u.hr``.)
+
+    NB: This gives no guarantees about visibility / horizons, as we are ignoring
+    observer-declination / target-declination here. Just provides a useful way
+    of setting up an observation at a good hour-angle, for a given
+    time-period.
+
+    Args:
+        start_time (astropy.time.Time): Time to start from.
+        observer_longitude (astropy.coordinates.Longitude): Longitude
+            of position on Earth
+        target_ra (astropy.coordinates.Longitude): Right ascension of
+            sky-target.
+        tolerance (astropy.units.Quantity): If target's LHA is within
+            ``tolerance`` of zero at ``start_time``, simply return
+            ``start_time``. Otherwise look for the next transit.
+            Dimensions of angular width (arc).
+    Returns:
+        astropy.time.Time: Approximate time of the next transit
+            (good to around 0.02 arcsec)
+    """
+    # Note, we get better looking precision we use 'mean' sidereal time,
+    # i.e. the ``t.sidereal_time`` for returned ``t`` will be closer to 0.
+    # However, since this ignores nutation, it will actually be a less accurate
+    # value.
+    lst = start_time.sidereal_time('apparent', longitude=observer_longitude)
+    target_lha = lst - target_ra
+    if np.fabs(target_lha) < tolerance:
+        return start_time
+
+    # Time to transit, in units of seconds:
+    # (Recall,  ``LHA=-6h`` -> target is about to rise.
+    time_to_transit = -1.*u.sday* (target_lha / (24. * u.hourangle))
+    if time_to_transit < 0:
+        time_to_transit = time_to_transit + 1.*u.sday
+    return start_time + time_to_transit
 
 
 def xyz_to_uvw_rotation_matrix(hour_angle, declination):

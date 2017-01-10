@@ -1,7 +1,7 @@
 import astropy.units as u
 import numpy as np
 
-from fastimgproto.coord_transforms import xyz_to_uvw_rotation_matrix
+from fastimgproto.coords import xyz_to_uvw_rotation_matrix
 
 # Define the basis vectors with component co-ordinates in their
 # own systems:
