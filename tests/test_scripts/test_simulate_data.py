@@ -11,7 +11,9 @@ def test_simulate_data():
         output_filename = 'simdata.npz'
 
         result = runner.invoke(sim_cli,
-                               [output_filename,])
+                               [output_filename,
+                                '--nstep','5'
+                                ])
         assert result.exit_code == 0
         with open(output_filename, 'rb') as f:
             output_data = np.load(f)
