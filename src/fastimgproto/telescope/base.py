@@ -174,12 +174,12 @@ class Telescope(object):
         corresponding to that instantaneous observation.
 
         Args:
-            pointing_centre (astropy.coords.SkyCoord): Pointing centre co-ords
+            pointing_centre (astropy.coordinates.SkyCoord): Pointing centre co-ords
                 for UVW calculation.
             obs_times (list): List of :class:`astropy.time.Time`, the instants
                 of observation.
         Returns:
-            dict: Mapping from LHA (astropy.coords.Longitude)-> UVW-ndarray,
+            dict: Mapping from LHA (astropy.coordinates.Longitude)-> UVW-ndarray,
             where UVW has (implicit) units of metres.
         """
         lha_uvw_map = OrderedDict()
@@ -193,26 +193,36 @@ class Telescope(object):
         return lha_uvw_map
 
     def uvw_tracking_skycoord(self, pointing_centre, obs_times,
-                              progress_updater=None):
+                              progress_update=None):
         """
         Calculate the UVW-array towards pointing centre for all obs_times.
 
         This function calculates an ndarray of uvw-coords corresponding to
-        an instantaneous observation at each of ``obs_times``, then
-        concatenates the results to produce an ndarray of length
-        ``n_baselines * len(obs_times)``
+        an instantaneous observation at each of ``obs_times``,
+        concatenating the results to produce an ndarray of shape
+        ``(n_baselines * len(obs_times), 3)``
 
         Args:
-            pointing_centre (astropy.coords.SkyCoord): Pointing centre co-ords
+            pointing_centre (astropy.coordinates.SkyCoord): Pointing centre co-ords
                 for UVW calculation.
             obs_times (list): List of :class:`astropy.time.Time`, the instants
                 of observation.
         Returns:
             numpy.ndarray: UVW-ndarray, where UVW has (implicit) units of metres.
         """
-        lha_uvw_map = self._uvw_tracking_skycoord_by_lha(
-            pointing_centre, obs_times, progress_updater)
-        return np.concatenate(lha_uvw_map.values())
+        n_baselines = len(self.baseline_local_xyz)
+        uvw_array = np.zeros((len(obs_times) * n_baselines, 3),
+                             dtype=np.float_)
+
+        for idx, time in enumerate(obs_times):
+            lha = self.lha(pointing_centre.ra, time)
+            output_slice = slice(idx * n_baselines, (idx + 1) * n_baselines)
+            uvw_array[output_slice] = self.uvw_at_local_hour_angle(
+                local_hour_angle=lha, dec=pointing_centre.dec
+            )
+            if progress_update:
+                progress_update(1)
+        return uvw_array
 
 
 def generate_baselines_and_labels(antenna_positions, antenna_labels):

@@ -44,7 +44,7 @@ def cli(output_npz, nstep):
                            label='Generating UVW-baselines') as pbar:
         uvw_m = telescope.uvw_tracking_skycoord(
             pointing_centre, obs_times,
-            progress_updater=pbar.update
+            progress_update=pbar.update
         )
     uvw_lambda = uvw_m / wavelength.to(u.m).value
     vis_noise_level = 0.001 * u.Jy

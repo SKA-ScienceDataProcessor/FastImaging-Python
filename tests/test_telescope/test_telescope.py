@@ -80,10 +80,12 @@ def test_uvw_tracking_skyposn():
     assert len(uvw_by_tracking) == len(obs_times)
 
     uvw_by_lha = telescope.uvw_at_local_hour_angle(tt_lha, azimuth_target.dec)
-    assert uvw_by_tracking.keys()[1] == tt_lha
-    assert (uvw_by_lha == uvw_by_tracking.values()[1]).all()
+    assert list(uvw_by_tracking.keys())[1] == tt_lha
+    assert (uvw_by_lha == list(uvw_by_tracking.values())[1]).all()
 
     n_total_baselines = len(telescope.baseline_local_xyz) * len(obs_times)
     flattened_uvw_array = telescope.uvw_tracking_skycoord(
         azimuth_target, obs_times)
     assert len(flattened_uvw_array) == n_total_baselines
+    assert (flattened_uvw_array ==
+            np.concatenate(list(uvw_by_tracking.values()))).all()
