@@ -163,7 +163,8 @@ class Telescope(object):
         rotation = xyz_to_uvw_rotation_matrix(local_hour_angle, dec)
         return np.dot(rotation, self.baseline_local_xyz.T).T
 
-    def _uvw_tracking_skycoord_by_lha(self, pointing_centre, obs_times):
+    def _uvw_tracking_skycoord_by_lha(self, pointing_centre, obs_times,
+                                      progress_update=None):
         """
         Calculate the UVW-array towards pointing centre for each obs_time.
 
@@ -187,9 +188,12 @@ class Telescope(object):
             lha_uvw_map[lha] = self.uvw_at_local_hour_angle(
                 local_hour_angle=lha, dec=pointing_centre.dec
             )
+            if progress_update:
+                progress_update(1)
         return lha_uvw_map
 
-    def uvw_tracking_skycoord(self, pointing_centre, obs_times):
+    def uvw_tracking_skycoord(self, pointing_centre, obs_times,
+                              progress_updater=None):
         """
         Calculate the UVW-array towards pointing centre for all obs_times.
 
@@ -207,7 +211,7 @@ class Telescope(object):
             numpy.ndarray: UVW-ndarray, where UVW has (implicit) units of metres.
         """
         lha_uvw_map = self._uvw_tracking_skycoord_by_lha(
-            pointing_centre, obs_times)
+            pointing_centre, obs_times, progress_updater)
         return np.concatenate(lha_uvw_map.values())
 
 
