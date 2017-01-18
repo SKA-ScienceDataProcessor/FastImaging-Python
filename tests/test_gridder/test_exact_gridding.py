@@ -242,8 +242,9 @@ def test_triangle():
     kernel = Kernel(kernel_func=kernel_func, support=support,
                     offset=subpix_offset[0],
                     oversampling=1)
+
     assert grid.sum() == vis.sum()
     # uv location of sample is 1, therefore pixel index = n_image/2 +1
-    xrange = slice(n_image / 2 + 1 - support, n_image / 2 + 1 + support + 1)
-    yrange = slice(n_image / 2 - support, n_image / 2 + support + 1)
+    xrange = slice(n_image // 2 + 1 - support, n_image // 2 + 1 + support + 1)
+    yrange = slice(n_image // 2 - support, n_image // 2 + support + 1)
     assert (grid[yrange, xrange] == (kernel.array / kernel.array.sum())).all()
