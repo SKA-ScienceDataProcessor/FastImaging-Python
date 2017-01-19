@@ -9,7 +9,7 @@ from fastimgproto.gridder.gridder import (
     calculate_oversampled_kernel_indices,
     populate_kernel_cache,
 )
-
+from fastimgproto.gridder.gridder import convolve_to_grid
 import numpy as np
 
 
@@ -59,7 +59,48 @@ def test_fractional_coord_to_oversampled_index_math():
             outputs).all()
 
 
-def test_stepped_vs_exact_convolution():
+def test_fractional_coord_in_2d_case():
+    """
+    Sanity check everything works OK when input is 2d array (i.e. UV-coords)
+
+    """
+
+    # OK, now demonstrate values with oversampling of 5, which has easy
+    # numbers to calculate since 1/5 = 0.2
+    oversampling = 5
+    io_pairs = np.array([
+        [-0.5, -2],
+        [-0.4999, -2],
+        [-0.4, -2],
+        [-0.35, -2],
+        [-0.3, -2],  # <-- numpy.around favours even roundings
+        [-0.2999, -1],
+        [-0.2, -1],
+        [-0.11, -1],
+        [-0.1, 0],  # <-- numpy.around favours even roundings
+        [-0.09, 0],
+        [-0.01, 0],
+        [0.0, 0],
+    ])
+    input = io_pairs[:, 0]
+    input = np.vstack((input, input)).T
+    assert (input.shape == (len(io_pairs), 2))
+
+    output = calculate_oversampled_kernel_indices(input, oversampling)
+    assert output.shape == input.shape
+    assert (io_pairs[:, 1] == output[:,0]).all()
+    assert (io_pairs[:, 1] == output[:,1]).all()
+
+
+def test_kernel_caching():
+    """
+    Test generation of cached (offset) kernels, and demonstrate correct usage.
+
+    In this test, we assume an oversampling of 5, resulting in
+    step-widths of 0.2 regular pixels. We then iterate through a bunch of
+    possible sub-pixel offsets, checking that we pick the nearest (closest to
+    exact-positioned) cached kernel correctly.
+    """
     # We use a triangle to compare, since even a tiny pixel offset should
     # result in differing values when using exact convolution,
     # this makes it easier to verify that the 'stepped' kernel is behaving
@@ -70,10 +111,9 @@ def test_stepped_vs_exact_convolution():
     kernel_func = conv_funcs.Triangle(half_base_width=2.5)
     oversampling = 5
 
-
     # Choose sub-pixel steps that align with oversampling grid:
     steps = np.array([-0.4, 0.2, 0.0, 0.2, 0.4])
-    substeps = np.linspace(-0.099999, 0.099999, num=50)
+    substeps = np.linspace(-0.099999, 0.099999, num=15)
 
     kernel_cache = populate_kernel_cache(
         kernel_func=kernel_func, support=support, oversampling=oversampling)
@@ -82,7 +122,10 @@ def test_stepped_vs_exact_convolution():
         offset = (x_offset, 0.0)
         aligned_exact_kernel = Kernel(kernel_func=kernel_func, support=support,
                                       offset=offset)
-        aligned_cache_idx = calculate_oversampled_kernel_indices(offset, oversampling)
+        # Generate an index into the kernel-cache at the precise offset
+        # (i.e. a multiple of 0.2-regular-pixel-widths)
+        aligned_cache_idx = calculate_oversampled_kernel_indices(offset,
+                                                                 oversampling)
         cached_kernel = kernel_cache[tuple(aligned_cache_idx)]
 
         # Check that for oversampling-grid aligned positions, cache == exact
@@ -94,17 +137,49 @@ def test_stepped_vs_exact_convolution():
             if sub_offset != 0.0:
                 unaligned_exact_kernel = Kernel(kernel_func=kernel_func,
                                                 support=support, offset=offset)
-                unaligned_cache_idx = calculate_oversampled_kernel_indices(offset, oversampling)
-                # We expect to return the same kernel as nearest grid-point
-                assert (unaligned_cache_idx==aligned_cache_idx).all()
+                # Check that the irregular position resolves to the correct
+                # nearby aligned position:
+                unaligned_cache_idx = calculate_oversampled_kernel_indices(
+                    offset, oversampling)
+                assert (unaligned_cache_idx == aligned_cache_idx).all()
 
-                ## No need to actually check the result, since we're fetching
-                ## from a fixed dict, but this is true if uncommented:
-                # cached_kernel = kernel_cache[tuple(unaligned_cache_idx)]
-                # assert (aligned_exact_kernel.array == cached_kernel.array).all()
+                ## Demonstrate retrieval of the cached kernel:
+                cached_kernel = kernel_cache[tuple(unaligned_cache_idx)]
+                assert (aligned_exact_kernel.array == cached_kernel.array).all()
 
-                ## Check that the exact kernel really does differ from the
-                ## nearest oversampled kernel (again, bit superfluous)
-                # diff = (aligned_exact_kernel.array - unaligned_exact_kernel.array)
-                # eps = 10e-10
-                # assert not (np.fabs(diff) <eps).all()
+                ## Sanity check - we expect the exact-calculated kernel to
+                ## be different by a small amount
+                diff = (
+                aligned_exact_kernel.array - unaligned_exact_kernel.array)
+                eps = 10e-9
+                assert not (np.fabs(diff) < eps).all()
+
+
+def test_oversampled_gridding():
+    """
+    Integration test of the convolve_to_grid function with oversampling
+
+    Mostly tests same functionality as ``test_kernel_caching``.
+
+    """
+    # Let's grid a triangle function
+    n_image = 8
+    support = 2
+    uv = np.array([(1.0, 0.0),
+                   (1.3, 0.0),
+                   (.01, -1.32),
+                   ])
+
+    vis = np.ones(len(uv), dtype=np.float_)
+
+    kernel_func = conv_funcs.Triangle(2.0)
+
+    grid, _ = convolve_to_grid(kernel_func,
+                               support=support,
+                               image_size=n_image,
+                               uv=uv, vis=vis,
+                               exact=False,
+                               oversampling=9
+                               )
+
+    assert grid.sum() == vis.sum()
