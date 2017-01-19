@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import astropy.units as u
 import numpy as np
 
 from fastimgproto.telescope.base import generate_baselines_and_labels
@@ -10,12 +11,12 @@ def test_baseline_generation():
     Imagine a 4-antenna array, with co-ords in (East,North,Up).
     """
     ant_posns = np.array([
-        [0,0,0], #Origin
-        [1,0,0], #1-East
-        [2,0,0], #2-East
-        [0,1,0], #1-North
-    ],dtype=np.float_
-    )
+        [0, 0, 0],  # Origin
+        [1, 0, 0],  # 1-East
+        [2, 0, 0],  # 2-East
+        [0, 1, 0],  # 1-North
+    ], dtype=np.float_
+    ) * u.m
     ant_labels = [
         'origin',
         '1-east',
@@ -26,7 +27,7 @@ def test_baseline_generation():
     baselines, baseline_labels = generate_baselines_and_labels(
         ant_posns, ant_labels)
 
-    assert len(baselines) == 6 # 4-choose-2
+    assert len(baselines) == 6  # 4-choose-2
     assert len(baselines) == len(baseline_labels)
     # print()
     # for idx in range(len(baselines)):
@@ -40,11 +41,12 @@ def test_baseline_generation():
         '1-east,1-north',
         '2-east,1-north',
     ]
-    assert (baselines == np.array(
+    expected_baselines = np.array(
         [[1., 0., 0.],
          [2., 0., 0.],
          [0., 1., 0.],
-         [1., 0., 0.], # From 1-east to 2-east
-         [-1., 1., 0.], # From 1-east to 1-north
-         [-2., 1., 0.]] # From 2-east to 1-north
-    )).all()
+         [1., 0., 0.],  # From 1-east to 2-east
+         [-1., 1., 0.],  # From 1-east to 1-north
+         [-2., 1., 0.]]  # From 2-east to 1-north
+    )* u.m
+    assert (baselines == expected_baselines).all()

@@ -161,7 +161,8 @@ class Telescope(object):
             [Shape: ``(3, n_baselines)``, dtype: ``numpy.float_``].
         """
         rotation = xyz_to_uvw_rotation_matrix(local_hour_angle, dec)
-        return np.dot(rotation, self.baseline_local_xyz.T).T
+        uvw = np.dot(rotation, self.baseline_local_xyz.T).T
+        return uvw
 
     def _uvw_tracking_skycoord_by_lha(self, pointing_centre, obs_times,
                                       progress_update=None):
@@ -179,8 +180,8 @@ class Telescope(object):
             obs_times (list): List of :class:`astropy.time.Time`, the instants
                 of observation.
         Returns:
-            dict: Mapping from LHA (astropy.coordinates.Longitude)-> UVW-ndarray,
-            where UVW has (implicit) units of metres.
+            dict: Mapping from LHA (astropy.coordinates.Longitude)-> UVW-array,
+            ( array of ``astropy.units.Quantity``), units of metres.
         """
         lha_uvw_map = OrderedDict()
         for time in obs_times:
@@ -208,11 +209,11 @@ class Telescope(object):
             obs_times (list): List of :class:`astropy.time.Time`, the instants
                 of observation.
         Returns:
-            numpy.ndarray: UVW-ndarray, where UVW has (implicit) units of metres.
+            astropy.units.Quantity: UVW-array, with units of metres.
         """
         n_baselines = len(self.baseline_local_xyz)
         uvw_array = np.zeros((len(obs_times) * n_baselines, 3),
-                             dtype=np.float_)
+                             dtype=np.float_)*self.baseline_local_xyz.unit
 
         for idx, time in enumerate(obs_times):
             lha = self.lha(pointing_centre.ra, time)
@@ -249,8 +250,8 @@ def generate_baselines_and_labels(antenna_positions, antenna_labels):
 
 
     Args:
-        antenna_positions (numpy.ndarray): Antennae xyz_positions in local-XYZ frame.
-            [dtype: ``np.float_``, shape ``(n_antennae,3,)``.
+        antenna_positions (astropy.units.Quantity): Antennae xyz_positions in
+            local-XYZ frame. [dtype: ``np.float_``, shape ``(n_antennae,3,)``.
         antenna_labels (list): Antennae labels
 
     Returns:
@@ -267,6 +268,7 @@ def generate_baselines_and_labels(antenna_positions, antenna_labels):
     pairings = list(combinations(range(len(antenna_positions)), 2))
     n_baselines = len(pairings)
     baseline_vecs = np.zeros((n_baselines, 3), dtype=np.float_)
+    baseline_vecs = baseline_vecs * antenna_positions.unit
     baseline_labels = [None] * n_baselines
     for baseline_idx, pair in enumerate(pairings):
         ant_1_idx, ant_2_idx = pair

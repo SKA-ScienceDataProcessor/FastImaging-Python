@@ -32,7 +32,7 @@ def test_xyz_antennae_to_uvw_baselines():
         [0, 0, 0],  # Origin
         [0, 1, 0],  # 1-East
         [0, 0, 1],  # 1-North
-    ], dtype=np.float_)
+    ], dtype=np.float_) * u.m
     ant_labels = [
         'origin',
         '1-east',
@@ -42,7 +42,8 @@ def test_xyz_antennae_to_uvw_baselines():
     expected_uvw_baselines = np.array([
         [1., 0., 0.],  # origin,1-east
         [0., 1., 0.],  # origin,1-north
-        [-1., 1., 0.]])  # 1-east,1-north
+        [-1., 1., 0.]]  # 1-east,1-north
+    ) * u.m
 
     tel = Telescope(latitude=Latitude(0 * u.deg),
                     longitude=Longitude(0 * u.deg),
@@ -80,12 +81,20 @@ def test_uvw_tracking_skyposn():
     assert len(uvw_by_tracking) == len(obs_times)
 
     uvw_by_lha = telescope.uvw_at_local_hour_angle(tt_lha, azimuth_target.dec)
+    assert uvw_by_lha.to(u.m)
     assert list(uvw_by_tracking.keys())[1] == tt_lha
     assert (uvw_by_lha == list(uvw_by_tracking.values())[1]).all()
 
     n_total_baselines = len(telescope.baseline_local_xyz) * len(obs_times)
     flattened_uvw_array = telescope.uvw_tracking_skycoord(
         azimuth_target, obs_times)
+    assert flattened_uvw_array.to(u.m)
     assert len(flattened_uvw_array) == n_total_baselines
-    assert (flattened_uvw_array ==
-            np.concatenate(list(uvw_by_tracking.values()))).all()
+
+
+    concat_array = np.concatenate(list(uvw_by_tracking.values()))
+    # Work around np.concat returning uninitialsed units:
+    # http://docs.astropy.org/en/stable/known_issues.html#id6
+    concat_array = concat_array.value * uvw_by_lha.unit
+
+    assert (flattened_uvw_array ==concat_array).all()

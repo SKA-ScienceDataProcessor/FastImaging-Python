@@ -51,7 +51,9 @@ def visibilities_for_point_source(dist_uvw, l, m, flux):
 
     Args:
         dist_uvw (numpy.array): Array of 3-vectors representing
-            baselines in UVW space [lambda]. (numpy shape: (n_uvw, 3))
+            baselines in UVW space. Implicit units are
+            (dimensionless) multiples of wavelength, lambda.
+            [numpy shape: (n_uvw, 3), dtype=np.float_]
         l,m (float): Direction cosines (in RA, Dec directions)
         flux (float): Flux [Jy]
 

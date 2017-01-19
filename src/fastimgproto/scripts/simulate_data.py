@@ -46,7 +46,8 @@ def cli(output_npz, nstep):
             pointing_centre, obs_times,
             progress_update=pbar.update
         )
-    uvw_lambda = uvw_m / wavelength.to(u.m).value
+    # From here on we use UVW as multiples of wavelength, lambda:
+    uvw_lambda = (uvw_m / wavelength).to(u.dimensionless_unscaled).value
     vis_noise_level = 0.001 * u.Jy
 
     # source_list = get_lsm(field_of_view)
