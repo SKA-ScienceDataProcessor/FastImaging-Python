@@ -69,7 +69,7 @@ def convolve_to_grid(kernel_func, support,
     assert len(uv) == len(vis)
     # Check for sensible combinations of exact / oversampling parameter-values:
     if not exact:
-        assert oversampling>=1
+        assert oversampling >= 1
 
     # Calculate nearest integer pixel co-ords ('rounded positions')
     uv_rounded = np.around(uv)
@@ -110,9 +110,10 @@ def convolve_to_grid(kernel_func, support,
                             offset=uv_frac[idx])
             normed_kernel_array = kernel.array
         else:
-            normed_kernel_array = kernel_cache[oversampled_offset[idx]].array
+            normed_kernel_array = kernel_cache[
+                tuple(oversampled_offset[idx])].array
 
-        vis_grid[yrange, xrange] += vis[idx]* normed_kernel_array
+        vis_grid[yrange, xrange] += vis[idx] * normed_kernel_array
         sampling_grid[yrange, xrange] += typed_one * normed_kernel_array
     return vis_grid, sampling_grid
 
