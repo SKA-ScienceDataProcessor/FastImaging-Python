@@ -110,7 +110,8 @@ def convolve_to_grid(kernel_func, support,
                             offset=uv_frac[idx])
             normed_kernel_array = kernel.array
         else:
-            normed_kernel_array = kernel_cache[oversampled_offset[idx]].array
+            normed_kernel_array = kernel_cache[
+                tuple(oversampled_offset[idx])].array
 
         vis_grid[yrange, xrange] += vis[idx] * normed_kernel_array
         sampling_grid[yrange, xrange] += typed_one * normed_kernel_array
