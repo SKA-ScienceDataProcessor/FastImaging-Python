@@ -34,8 +34,7 @@ class Telescope(object):
         )
 
     Attributes:
-        latitude (astropy.coordinates.Latitude): Latitude of array
-        longitude (astropy.coordinates.Longitude): Longitude of array
+        centre (astropy.coordinates.EarthLocation): Centre of the array
         ant_labels (list): Antennae labels
         ant_itrf_xyz (numpy.ndarray): Antennae xyz_positions in ITRF frame.
             [dtype: ``np.float_``, shape ``(n_antennae,3,)``.
@@ -46,8 +45,7 @@ class Telescope(object):
         baseline_labels (list): Baseline labels.
             (See also :func:`generate_baselines_and_labels`)
     """
-    latitude = attrib(validator=attr.validators.instance_of(Latitude))
-    longitude = attrib(validator=attr.validators.instance_of(Longitude))
+    centre = attrib(validator=attr.validators.instance_of(EarthLocation))
     ant_labels = attrib(default=None)
     ant_itrf_xyz = attrib(default=None, validator=_validator_optional_ndarray)
     ant_local_xyz = attrib(default=None, validator=_validator_optional_ndarray)
@@ -61,6 +59,21 @@ class Telescope(object):
         self.baseline_local_xyz, self.baseline_labels = generate_baselines_and_labels(
             self.ant_local_xyz, self.ant_labels
         )
+
+    @property
+    def lat(self):
+        lon, lat, height = self.centre.to_geodetic()
+        return lat
+
+    @property
+    def lon(self):
+        lon, lat, height = self.centre.to_geodetic()
+        return lon
+
+    @property
+    def height(self):
+        lon, lat, height = self.centre.to_geodetic()
+        return height
 
     @staticmethod
     def from_itrf(ant_itrf_xyz, ant_labels):
@@ -80,11 +93,12 @@ class Telescope(object):
             Telescope: A telescope class with the given array co-ords.
         """
         mean_posn = np.mean(ant_itrf_xyz, axis=0)
-        lon, lat, alt = EarthLocation.from_geocentric(mean_posn[0],
-                                                      mean_posn[1],
-                                                      mean_posn[2],
-                                                      unit=u.m,
-                                                      ).to_geodetic()
+        centre = EarthLocation.from_geocentric(mean_posn[0],
+                                               mean_posn[1],
+                                               mean_posn[2],
+                                               unit=u.m,
+                                               )
+        lon, lat, height = centre.to_geodetic()
 
         mean_subbed_itrf = ant_itrf_xyz - mean_posn
 
@@ -92,8 +106,7 @@ class Telescope(object):
         ant_local_xyz = np.dot(rotation, mean_subbed_itrf.T).T
 
         return Telescope(
-            latitude=lat,
-            longitude=lon,
+            centre=centre,
             ant_labels=ant_labels,
             ant_itrf_xyz=ant_itrf_xyz,
             ant_local_xyz=ant_local_xyz,
@@ -124,7 +137,7 @@ class Telescope(object):
             an angle-Quantity.
         """
         return time.sidereal_time('apparent',
-                                  longitude=self.longitude)
+                                  longitude=self.lon)
 
     def next_transit(self, target_ra, start_time, ):
         """
@@ -140,7 +153,7 @@ class Telescope(object):
             astropy.time.Time: Approximate time of the next transit
 
         """
-        return time_of_next_transit(observer_longitude=self.longitude,
+        return time_of_next_transit(observer_longitude=self.lon,
                                     target_ra=target_ra,
                                     start_time=start_time)
 
@@ -213,7 +226,7 @@ class Telescope(object):
         """
         n_baselines = len(self.baseline_local_xyz)
         uvw_array = np.zeros((len(obs_times) * n_baselines, 3),
-                             dtype=np.float_)*self.baseline_local_xyz.unit
+                             dtype=np.float_) * self.baseline_local_xyz.unit
 
         for idx, time in enumerate(obs_times):
             lha = self.lha(pointing_centre.ra, time)

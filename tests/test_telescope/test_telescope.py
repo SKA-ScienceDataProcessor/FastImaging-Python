@@ -1,7 +1,9 @@
 from __future__ import print_function
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import Latitude, Longitude, SkyCoord
+from astropy.coordinates import (
+    EarthLocation, Latitude, Longitude, SkyCoord,
+)
 from astropy.time import Time
 from fastimgproto.telescope import Telescope
 from fastimgproto.telescope.base import parse_itrf_ascii_to_xyz_and_labels
@@ -28,6 +30,9 @@ def test_xyz_antennae_to_uvw_baselines():
     Y (Local East) -> U (LHA - 6h)
     Z (Celestial North) -> V( declination of  (pi/2 - source_dec) )
     """
+    centre = EarthLocation.from_geodetic(
+        Longitude(0 * u.deg), Latitude(0 * u.deg))
+
     ant_local_xyz = np.array([
         [0, 0, 0],  # Origin
         [0, 1, 0],  # 1-East
@@ -45,11 +50,11 @@ def test_xyz_antennae_to_uvw_baselines():
         [-1., 1., 0.]]  # 1-east,1-north
     ) * u.m
 
-    tel = Telescope(latitude=Latitude(0 * u.deg),
-                    longitude=Longitude(0 * u.deg),
-                    ant_labels=ant_labels,
-                    ant_local_xyz=ant_local_xyz
-                    )
+    tel = Telescope(
+        centre=centre,
+        ant_labels=ant_labels,
+        ant_local_xyz=ant_local_xyz
+    )
     # print(tel.baseline_labels)
     # print(tel.baseline_local_xyz)
 
@@ -67,7 +72,7 @@ def test_uvw_tracking_skyposn():
     Check UVW calculations for Time+RA+Dec vs LHA+Dec produce consistent results
     """
     telescope = Meerkat()
-    azimuth_target = SkyCoord(ra=0 * u.deg, dec=telescope.latitude)
+    azimuth_target = SkyCoord(ra=0 * u.deg, dec=telescope.lat)
 
     t0 = Time('2017-01-01 12:00:00', format='iso', scale='utc')
     tt = telescope.next_transit(azimuth_target.ra, t0)
@@ -91,10 +96,9 @@ def test_uvw_tracking_skyposn():
     assert flattened_uvw_array.to(u.m)
     assert len(flattened_uvw_array) == n_total_baselines
 
-
     concat_array = np.concatenate(list(uvw_by_tracking.values()))
     # Work around np.concat returning uninitialsed units:
     # http://docs.astropy.org/en/stable/known_issues.html#id6
     concat_array = concat_array.value * uvw_by_lha.unit
 
-    assert (flattened_uvw_array ==concat_array).all()
+    assert (flattened_uvw_array == concat_array).all()
