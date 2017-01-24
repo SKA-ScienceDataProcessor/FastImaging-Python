@@ -7,3 +7,4 @@ Jupyter Notebook Examples
     notebooks/convolutional_kernel_funcs
     notebooks/anti_aliasing_properties
     notebooks/simulate_and_image
+    notebooks/sourcefinding

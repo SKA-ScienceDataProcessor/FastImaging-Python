@@ -3,3 +3,4 @@ sphinx_rtd_theme
 jupyter
 nbsphinx
 matplotlib
+nbconvert==5.0.0
