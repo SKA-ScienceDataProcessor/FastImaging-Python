@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import numpy as np
-import scipy.ndimage as ndimage
 
 from fastimgproto.fixtures.image import (
     evaluate_model_on_pixel_grid,

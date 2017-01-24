@@ -2,7 +2,10 @@
 Convolutional gridding of visibilities.
 """
 import logging
+
+import click
 import numpy as np
+
 from fastimgproto.gridder.kernel_generation import Kernel
 
 logger = logging.getLogger(__name__)
@@ -99,22 +102,25 @@ def convolve_to_grid(kernel_func, support,
             kernel_func, support, oversampling)
         oversampled_offset = calculate_oversampled_kernel_indices(
             uv_frac, oversampling)
+    logger.debug("Gridding {} visibilities".format(len(good_vis_idx)))
+    with click.progressbar(length=len(good_vis_idx),
+                           label='Gridding visibilities') as pbar:
+        for idx in good_vis_idx:
+            gc_x, gc_y = kernel_centre_on_grid[idx]
+            # Generate a convolution kernel with the precise offset required:
+            xrange = slice(gc_x - support, gc_x + support + 1)
+            yrange = slice(gc_y - support, gc_y + support + 1)
+            if exact:
+                kernel = Kernel(kernel_func=kernel_func, support=support,
+                                offset=uv_frac[idx])
+                normed_kernel_array = kernel.array
+            else:
+                normed_kernel_array = kernel_cache[
+                    tuple(oversampled_offset[idx])].array
 
-    for idx in good_vis_idx:
-        gc_x, gc_y = kernel_centre_on_grid[idx]
-        # Generate a convolution kernel with the precise offset required:
-        xrange = slice(gc_x - support, gc_x + support + 1)
-        yrange = slice(gc_y - support, gc_y + support + 1)
-        if exact:
-            kernel = Kernel(kernel_func=kernel_func, support=support,
-                            offset=uv_frac[idx])
-            normed_kernel_array = kernel.array
-        else:
-            normed_kernel_array = kernel_cache[
-                tuple(oversampled_offset[idx])].array
-
-        vis_grid[yrange, xrange] += vis[idx] * normed_kernel_array
-        sampling_grid[yrange, xrange] += typed_one * normed_kernel_array
+            vis_grid[yrange, xrange] += vis[idx] * normed_kernel_array
+            sampling_grid[yrange, xrange] += typed_one * normed_kernel_array
+            pbar.update(1)
     return vis_grid, sampling_grid
 
 

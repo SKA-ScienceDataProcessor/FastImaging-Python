@@ -14,7 +14,7 @@ import fastimgproto.visibility as visibility
 from fastimgproto.skymodel.helpers import SkyRegion, SkySource
 from fastimgproto.telescope.readymade import Meerkat
 
-default_n_timestep = 1000
+default_n_timestep = 100
 
 
 @click.command()
