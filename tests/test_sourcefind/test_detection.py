@@ -67,7 +67,6 @@ def test_basic_source_detection():
     assert len(sf.islands) == 2
 
 
-
 def test_negative_source_detection():
     """
     Also need to detect 'negative' sources, i.e. where a source in the
@@ -98,8 +97,45 @@ def test_negative_source_detection():
                          analysis_n_sigma=3,
                          rms_est=rms)
     assert len(sf.islands) == 2
-    positive_islands = [i for i in sf.islands if i.sign==1]
-    negative_islands = [i for i in sf.islands if i.sign==-1]
-    assert len(positive_islands) ==1
-    assert len(negative_islands) ==1
-    assert negative_islands[0]== found_src
+    positive_islands = [i for i in sf.islands if i.sign == 1]
+    negative_islands = [i for i in sf.islands if i.sign == -1]
+    assert len(positive_islands) == 1
+    assert len(negative_islands) == 1
+    assert negative_islands[0] == found_src
+
+
+def test_memory_usage():
+    """
+    Double check that the sourcefinder code behaves as expected,
+    i.e. the same image-data is passed around and reused rather than
+    being extraneously copied.
+
+    This is non-obvious because the Island analysis creates a masked-array
+    version of the original image data - is that a view or a copy?
+
+    """
+    img = np.zeros((ydim, xdim))
+    img += evaluate_model_on_pixel_grid(img.shape, bright_src)
+    # img += evaluate_model_on_pixel_grid(img.shape, faint_src)
+
+    sf = SourceFindImage(img, detection_n_sigma=4,
+                         analysis_n_sigma=3,
+                         rms_est=rms,
+                         find_negative_sources=False)
+    assert len(sf.islands) == 1
+    island = sf.islands[0]
+    assert island.parent is sf
+
+    # island.data is the masked array (image masked to just this island)
+    island_mask = island.data
+    # Check if the underlying data is the same:
+    assert np.may_share_memory(sf.data, island_mask.data)
+
+    assert (sf.data == island_mask.data).all()
+    # Check our initial conditions
+    assert sf.data[0][0] != 42.
+    # Alter the masked-array underlying data:
+    island_mask.data[0][0] = 42.
+    # Check if the original image data has been altered accordingly:
+    assert sf.data[0][0] == 42.
+    
