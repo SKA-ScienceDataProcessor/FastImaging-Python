@@ -136,9 +136,9 @@ class SourceFindImage(object):
 
         Returns:
             tuple (array_like, dict): Tuple of `(label_map, valid_labels)`.
-                `label_map` is an ndarray containing the pixel labels.
-                `valid_labels` is a dict mapping valid label numbers to the maximum
-                pixel-value in that label-region.
+            `label_map` is an ndarray containing the pixel labels.
+            `valid_labels` is a dict mapping valid label numbers to the maximum
+            pixel-value in that label-region.
 
         """
         assert sign in (-1, 1)
