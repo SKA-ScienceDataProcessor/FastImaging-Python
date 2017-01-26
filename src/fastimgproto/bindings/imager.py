@@ -1,18 +1,47 @@
 import astropy.units as u
-import numpy as np
 
-from fastimgproto.gridder.gridder import convolve_to_grid
-from fastimgproto.imager import fft_to_image_plane
-from fastimgproto.gridder.conv_funcs import GaussianSinc
+import fastimgproto.gridder.conv_funcs as kfuncs
+from .present import CPP_BINDINGS_PRESENT
 
 
 class CppKernelFuncs(object):
+    """
+    A simple namespace / enum structure for listing the available kernels.
+    """
+    gauss = 'gauss'
     gauss_sinc = 'gauss_sinc'
+    sinc = 'sinc'
+    triangle = 'triangle'
+    tophat = 'tophat'
 
 
-def cpp_image_visibilities(vis, uvw_lambda,
-                           image_size, cell_size,
-                           kernel_func_name=CppKernelFuncs.gauss_sinc,
+# Mapping to equivalent implementation in pure Python
+PYTHON_KERNELS = {
+    CppKernelFuncs.gauss: kfuncs.Gaussian,
+    CppKernelFuncs.gauss_sinc: kfuncs.GaussianSinc,
+    CppKernelFuncs.sinc: kfuncs.Sinc,
+    CppKernelFuncs.tophat: kfuncs.Pillbox,
+    CppKernelFuncs.triangle: kfuncs.Triangle,
+}
+
+if CPP_BINDINGS_PRESENT:
+    import stp_python
+
+    # Mapping from name to stp function:
+    CPP_KERNELS = {
+        CppKernelFuncs.gauss_sinc: stp_python.KernelFunction.GaussianSinc,
+        CppKernelFuncs.gauss: stp_python.KernelFunction.Gaussian,
+        CppKernelFuncs.sinc: stp_python.KernelFunction.Sinc,
+        CppKernelFuncs.triangle: stp_python.KernelFunction.Triangle,
+        CppKernelFuncs.tophat: stp_python.KernelFunction.TopHat,
+    }
+
+
+def cpp_image_visibilities(vis,
+                           uvw_lambda,
+                           image_size,
+                           cell_size,
+                           kernel_func_name,
                            kernel_trunc_radius=3.0,
                            kernel_support=3,
                            kernel_exact=True,
@@ -31,8 +60,8 @@ def cpp_image_visibilities(vis, uvw_lambda,
 
 
     Performs the following tasks before handing over to C++ bindings:
+    - Checks CPP bindings are available
     - Checks arguments are of correct type / units
-    - Converts uvw-array from wavelength (lambda) units to pixel units
 
     Args:
         vis (numpy.ndarray): Complex visibilities.
@@ -69,110 +98,27 @@ def cpp_image_visibilities(vis, uvw_lambda,
             Note numpy style index-order, i.e. access like ``image[y,x]``.
 
     """
-    if kernel_func_name not in (CppKernelFuncs.gauss_sinc,):
-        raise ValueError(
-            "kernel function of type {} not recognised".format(
-                kernel_func_name))
+    if not CPP_BINDINGS_PRESENT:
+        raise OSError("Cannot import stp_python (C++ bindings module)")
 
-    image_size = image_size.to(u.pix)
-    # Size of a UV-grid pixel, in multiples of wavelength (lambda):
-    grid_pixel_width_lambda = 1.0 / (cell_size.to(u.rad) * image_size)
-    uvw_in_pixels = (uvw_lambda / grid_pixel_width_lambda).value
-    uv_in_pixels = uvw_in_pixels[:, :2]
+    stp_kernel = CPP_KERNELS[kernel_func_name]
 
-    # subroutine = _cpp_image_visibilities
-    subroutine = _python_image_visibilities # <-- Until CPP bindings implemented
-    (image, beam) = _python_image_visibilities(
-        vis=vis,
-        uv_pixels=uv_in_pixels,
-        image_size=int(image_size.value),
-        kernel_func_name=kernel_func_name,
-        kernel_trunc_radius=kernel_trunc_radius,
-        kernel_support=kernel_support,
-        kernel_exact=kernel_exact,
-        kernel_oversampling=kernel_oversampling,
-        normalize=normalize,
+    if kernel_oversampling is None:
+        kernel_oversampling = 0
+    if not kernel_exact:
+        assert kernel_oversampling >= 1
+
+    (image, beam) = stp_python.image_visibilities_wrapper(
+        vis,
+        uvw_lambda,
+        int(image_size.to(u.pix).value),
+        cell_size.to(u.arcsec).value,
+        stp_kernel,
+        kernel_trunc_radius,
+        int(kernel_support),
+        kernel_exact,
+        kernel_oversampling,
+        normalize,
     )
 
     return image, beam
-
-
-def _cpp_image_visibilities(vis,
-                            uv_pixels,
-                            image_size,
-                            kernel_func_name,
-                            kernel_trunc_radius,
-                            kernel_support,
-                            kernel_exact=True,
-                            kernel_oversampling=0,
-                            normalize=True
-                            ):
-    pass
-    # C++ Bindings here
-
-
-def _python_image_visibilities(vis,
-                               uv_pixels,
-                               image_size,
-                               kernel_func_name,
-                               kernel_trunc_radius,
-                               kernel_support,
-                               kernel_exact=True,
-                               kernel_oversampling=0,
-                               normalize=True
-                               ):
-    """
-    Equivalent Python code for validation of _cpp_image_visibilities
-
-    Args:
-        vis (numpy.ndarray): Complex visibilities.
-            1d array, shape: `(n_vis,)`.
-        uv_pixels (numpy.ndarray): UV-coordinates of visibilities. Units are
-            pixel-widths relative to the grid being sampled onto.
-            2d array of ``np.float_``, shape: ``(n_vis, 2)``.
-            Assumed ordering is u,v i.e. ``u,v = uv[idx]``
-        image_size (int): Width of the image in pixels.
-            NB we assume the pixel ``[image_size//2,image_size//2]``
-            corresponds to the origin in UV-space.
-        kernel_func_name (str): Choice of kernel function from limited C++ selection.
-        kernel_trunc_radius (float): Truncation radius of the kernel to be used.
-        kernel_support (int): Defines the 'radius' of the bounding box within
-            which convolution takes place. `Box width in pixels = 2*support+1`.
-            (The central pixel is the one nearest to the UV co-ordinates.)
-            (This is sometimes known as the 'half-support')
-        kernel_exact (bool): Calculate exact kernel-values for every UV-sample.
-        kernel_oversampling (int): Controls kernel-generation if
-            ``exact==False``. Larger values give a finer-sampled set of
-            pre-cached kernels.
-        normalize (bool): Whether or not the returned image and beam
-            should be normalized such that the beam peaks at a value of
-            1.0 Jansky. You normally want this to be true, but it may be
-            interesting to check the raw values for debugging purposes.
-
-    Returns:
-        tuple: (image, beam)
-            Tuple of ndarrays representing the image map and beam model.
-            These are 2d arrays of same dtype as ``vis``,
-            (typically ``np._complex``),  shape ``(image_size, image_size)``.
-            Note numpy style index-order, i.e. access like ``image[y,x]``.
-
-    """
-    assert kernel_func_name == CppKernelFuncs.gauss_sinc
-    kernel_func = GaussianSinc(trunc=kernel_trunc_radius)
-
-    vis_grid, sample_grid = convolve_to_grid(kernel_func,
-                                             support=kernel_support,
-                                             image_size=image_size,
-                                             uv=uv_pixels,
-                                             vis=vis,
-                                             exact=kernel_exact,
-                                             oversampling=kernel_oversampling
-                                             )
-    image = fft_to_image_plane(vis_grid)
-    beam = fft_to_image_plane(sample_grid)
-    if normalize:
-        beam_max = np.max(np.real(beam))
-        beam /= beam_max
-        image /= beam_max
-
-    return (image, beam)
