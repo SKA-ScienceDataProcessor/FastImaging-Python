@@ -7,11 +7,13 @@ from fastimgproto.fixtures.image import (
     gaussian_point_source,
     uncorrelated_gaussian_noise_background
 )
-from fastimgproto.sourcefind.image import (SourceFindImage, _estimate_rms)
+from fastimgproto.sourcefind.image import (
+    SourceFindImage, IslandParams, _estimate_rms)
 
 ydim = 128
 xdim = 64
 rms = 1.0
+
 bright_src = gaussian_point_source(x_centre=48.24, y_centre=52.66,
                                    amplitude=10.0)
 faint_src = gaussian_point_source(x_centre=32, y_centre=64, amplitude=3.5)
@@ -103,6 +105,25 @@ def test_negative_source_detection():
     assert len(negative_islands) == 1
     assert negative_islands[0] == found_src
 
+    neg_island = negative_islands[0]
+    pos_island = positive_islands[0]
+    assert isinstance(pos_island, IslandParams)
+    neg_src_idx = (neg_island.extremum_y_idx, neg_island.extremum_x_idx)
+    pos_src_idx = (pos_island.extremum_y_idx, pos_island.extremum_x_idx)
+
+    assert np.abs(pos_island.extremum_x_idx - bright_src.x_mean) < 0.5
+    assert np.abs(pos_island.xbar - bright_src.x_mean) < 0.1
+    assert np.abs(pos_island.extremum_y_idx - bright_src.y_mean) < 0.5
+    assert np.abs(pos_island.ybar - bright_src.y_mean) < 0.1
+
+    # Sanity check that the island masks are correct
+    assert not ((neg_island.data.mask == pos_island.data.mask).all())
+    assert neg_island.data.mask[neg_src_idx] == False
+    assert neg_island.data.mask[pos_src_idx] == True
+    assert pos_island.data.mask[pos_src_idx] == False
+    assert pos_island.data.mask[neg_src_idx] == True
+
+
 
 def test_memory_usage():
     """
@@ -138,4 +159,3 @@ def test_memory_usage():
     island_mask.data[0][0] = 42.
     # Check if the original image data has been altered accordingly:
     assert sf.data[0][0] == 42.
-    
