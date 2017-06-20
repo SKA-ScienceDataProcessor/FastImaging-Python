@@ -8,6 +8,7 @@ import sys
 import astropy.units as u
 import click
 import numpy as np
+from tqdm import tqdm as Tqdm
 
 import fastimgproto.imager as imager
 from fastimgproto.gridder.conv_funcs import GaussianSinc
@@ -41,14 +42,17 @@ def cli(config_json, in_vis, out_img):
     # Will move this to a config option later
     kernel_support = 3
     kernel_func = GaussianSinc(trunc=kernel_support)
-    image, beam = imager.image_visibilities(vis, uvw_lambda,
-                                            image_size=image_size,
-                                            cell_size=cell_size,
-                                            kernel_func=kernel_func,
-                                            kernel_support=kernel_support,
-                                            kernel_exact=True,
-                                            kernel_oversampling=None
-                                            )
+
+    with Tqdm() as pbar:
+        image, beam = imager.image_visibilities(vis, uvw_lambda,
+                                                image_size=image_size,
+                                                cell_size=cell_size,
+                                                kernel_func=kernel_func,
+                                                kernel_support=kernel_support,
+                                                kernel_exact=True,
+                                                kernel_oversampling=None,
+                                                pbar=pbar
+                                                )
 
     np.savez(out_img, image=image, beam=beam)
     sys.exit(0)

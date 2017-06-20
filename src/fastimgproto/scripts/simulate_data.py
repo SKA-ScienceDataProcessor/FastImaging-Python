@@ -5,14 +5,15 @@ import logging
 
 import astropy.constants as const
 import astropy.units as u
-from astropy.time import Time
 import click
 import numpy as np
-from astropy.coordinates import Angle, SkyCoord
+from astropy.coordinates import SkyCoord
+from astropy.time import Time
 
 import fastimgproto.visibility as visibility
-from fastimgproto.skymodel.helpers import SkyRegion, SkySource
+from fastimgproto.skymodel.helpers import SkySource
 from fastimgproto.telescope.readymade import Meerkat
+from tqdm import tqdm as Tqdm
 
 default_n_timestep = 100
 
@@ -40,11 +41,10 @@ def cli(output_npz, nstep):
                                           start_time=Time('2017-01-01'))
     obs_times = transit_time + np.linspace(-1, 1, nstep) * u.hr
     logger.info("Generating UVW-baselines for {} timesteps".format(nstep))
-    with click.progressbar(length=len(obs_times),
-                           label='Generating UVW-baselines') as pbar:
+    with Tqdm() as pbar:
         uvw_m = telescope.uvw_tracking_skycoord(
             pointing_centre, obs_times,
-            progress_update=pbar.update
+            pbar=pbar
         )
     # From here on we use UVW as multiples of wavelength, lambda:
     uvw_lambda = (uvw_m / wavelength).to(u.dimensionless_unscaled).value

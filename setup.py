@@ -12,6 +12,7 @@ install_requires = [
     'pytest',
     'six',
     'scipy',
+    'tqdm',
 ]
 
 
