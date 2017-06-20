@@ -1,6 +1,8 @@
 import math
-import numpy as np
+
 import astropy.units as u
+import numpy as np
+
 from fastimgproto.skymodel.helpers import SkySource
 
 
@@ -130,4 +132,3 @@ def add_gaussian_noise(noise_level, vis, seed=None):
     rstate = np.random.RandomState(seed)
     noise = rstate.normal(loc=0, scale=sigma, size=(len(vis),2))
     return vis + (noise[:,0] + 1j*noise[:,1])
-

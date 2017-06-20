@@ -44,18 +44,17 @@ project = u'ska-fastimgproto'
 copyright = u'2016, Tim Staley'
 author = u'Tim Staley'
 
+
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 
-from fastimgproto import __version__, __versiondict__
-
+from fastimgproto import __version__ # isort:skip
 version = __version__.split('+')[0]
 if 'dirty' in version:
     version = version.rsplit('.', maxsplit=1)[0]
 # The full version, including alpha/beta/rc tags.
 # release = __versiondict__['full-revisionid'][:8]
-
 
 language = None
 

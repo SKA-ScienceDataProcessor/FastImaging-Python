@@ -1,8 +1,9 @@
+import numpy as np
+
 from fastimgproto.fixtures.image import (
     evaluate_model_on_pixel_grid,
     gaussian_point_source,
 )
-import numpy as np
 
 
 def test_model_generation_and_evaluation():

@@ -5,8 +5,9 @@ A small wrapper around pytest.
 Sets up logging defaults.
 """
 
-import pytest
 import sys
+
+import pytest
 
 if __name__ == "__main__":
     import logging

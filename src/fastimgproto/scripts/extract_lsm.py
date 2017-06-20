@@ -1,17 +1,20 @@
 #!/usr/bin/env python
 from __future__ import print_function
-from astropy.utils.data import download_file
-from astropy.coordinates import Angle, SkyCoord
-import astropy.units as u
-from fastimgproto.skymodel.helpers import SkyRegion
-from fastimgproto.skymodel.extraction import (
-    sumss_file_to_dataframe,
-    lsm_extract,
-    SumssSrc,
-)
-import click
-import sys
+
 import csv
+import sys
+
+import astropy.units as u
+import click
+from astropy.coordinates import Angle, SkyCoord
+from astropy.utils.data import download_file
+
+from fastimgproto.skymodel.extraction import (
+    SumssSrc,
+    lsm_extract,
+    sumss_file_to_dataframe,
+)
+from fastimgproto.skymodel.helpers import SkyRegion
 
 
 def write_catalog(src_list, filehandle):

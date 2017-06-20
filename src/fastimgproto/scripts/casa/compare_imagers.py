@@ -4,10 +4,11 @@ from __future__ import print_function
 import logging
 import os
 import sys
-import numpy as np
 
 import astropy.units as u
 import click
+import numpy as np
+
 import fastimgproto.casa.io as casa_io
 import fastimgproto.casa.reduction as casa_reduce
 import fastimgproto.imager as imager

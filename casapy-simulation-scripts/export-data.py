@@ -1,4 +1,5 @@
 import numpy
+
 numpy.set_printoptions(threshold='nan')
 tb.open('vla-sim.MS', nomodify=F)
 corrected = tb.getcol('CORRECTED_DATA')

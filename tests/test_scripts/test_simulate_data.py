@@ -2,6 +2,7 @@ import json
 
 import numpy as np
 from click.testing import CliRunner
+
 from fastimgproto.scripts.simulate_data import cli as sim_cli
 
 

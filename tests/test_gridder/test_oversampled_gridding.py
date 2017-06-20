@@ -3,14 +3,15 @@ Test the oversampling / downsampling routines used to generate Kernels at
 regularly spaced subpixel offsets
 """
 
+import numpy as np
+
 import fastimgproto.gridder.conv_funcs as conv_funcs
-from fastimgproto.gridder.kernel_generation import Kernel
 from fastimgproto.gridder.gridder import (
     calculate_oversampled_kernel_indices,
+    convolve_to_grid,
     populate_kernel_cache,
 )
-from fastimgproto.gridder.gridder import convolve_to_grid
-import numpy as np
+from fastimgproto.gridder.kernel_generation import Kernel
 
 
 def test_fractional_coord_to_oversampled_index_math():

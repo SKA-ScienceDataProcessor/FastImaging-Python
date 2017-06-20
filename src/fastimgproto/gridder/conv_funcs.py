@@ -9,9 +9,11 @@ callable with one parameter, the distance in pixels.
 This allows us to pass the convolution routine the minimum of extra parameters.
 """
 from __future__ import division
+
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
 from six import add_metaclass
-from abc import ABCMeta, abstractmethod
 
 
 @add_metaclass(ABCMeta)

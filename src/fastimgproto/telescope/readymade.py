@@ -1,8 +1,11 @@
-from .base import (Telescope, parse_itrf_ascii_to_xyz_and_labels)
-from .data import (meerkat_itrf_filepath,
-                   vla_a_filepath, vla_b_filepath,
-                   vla_c_filepath, vla_d_filepath
-                   )
+from .base import Telescope, parse_itrf_ascii_to_xyz_and_labels
+from .data import (
+    meerkat_itrf_filepath,
+    vla_a_filepath,
+    vla_b_filepath,
+    vla_c_filepath,
+    vla_d_filepath,
+)
 
 
 def Meerkat():

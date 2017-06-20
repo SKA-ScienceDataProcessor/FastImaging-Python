@@ -1,14 +1,16 @@
 """
 Simulated pipeline run
 """
-import click
-import astropy.units as u
-import fastimgproto.casa.simulation as casa_sim
 import logging
 import os
+
+import astropy.units as u
+import click
 from astropy.coordinates import Angle, SkyCoord
+
+import fastimgproto.casa.simulation as casa_sim
+from fastimgproto.pipeline.skymodel import get_spiral_source_test_pattern
 from fastimgproto.skymodel.helpers import SkyRegion, SkySource
-from fastimgproto.pipeline.skymodel import (get_spiral_source_test_pattern)
 
 
 @click.command()

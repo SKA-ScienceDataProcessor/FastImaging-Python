@@ -6,9 +6,9 @@ import pytest
 
 from fastimgproto.bindings import CPP_BINDINGS_PRESENT
 from fastimgproto.bindings.imager import (
+    PYTHON_KERNELS,
     CppKernelFuncs,
     cpp_image_visibilities,
-    PYTHON_KERNELS,
 )
 from fastimgproto.fixtures.data import simple_vis_npz_filepath
 from fastimgproto.imager import image_visibilities as py_image_visibilities
@@ -87,5 +87,3 @@ def test_cpp_imager_results_parity():
     kwargs['kernel_exact'] = False
     kwargs['kernel_oversampling'] = 9
     compare_imagers(kwargs)
-
-

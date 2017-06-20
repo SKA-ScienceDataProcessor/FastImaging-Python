@@ -5,10 +5,7 @@ Run sourcefinding on an image
 import click
 import numpy as np
 
-from fastimgproto.sourcefind.image import SourceFindImage, IslandParams
-
-
-# from fastimgproto.sourcefind import extract_sources
+from fastimgproto.sourcefind.image import IslandParams, SourceFindImage
 
 
 def main(image_path, detection_n_sigma, analysis_n_sigma):

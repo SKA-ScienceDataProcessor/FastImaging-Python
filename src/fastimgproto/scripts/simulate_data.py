@@ -9,11 +9,12 @@ import click
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
+from tqdm import tqdm as Tqdm
 
 import fastimgproto.visibility as visibility
 from fastimgproto.skymodel.helpers import SkySource
 from fastimgproto.telescope.readymade import Meerkat
-from tqdm import tqdm as Tqdm
+
 
 default_n_timestep = 100
 

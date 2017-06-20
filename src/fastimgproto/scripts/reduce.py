@@ -12,7 +12,8 @@ import numpy as np
 import fastimgproto.imager as imager
 from fastimgproto.gridder.conv_funcs import GaussianSinc
 from fastimgproto.sourcefind.image import SourceFindImage
-from .config import (default_config_path, ConfigKeys)
+
+from .config import ConfigKeys, default_config_path
 
 
 # @click.argument(

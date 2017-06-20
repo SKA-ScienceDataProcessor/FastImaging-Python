@@ -2,14 +2,12 @@ import json
 
 import numpy as np
 from click.testing import CliRunner
+
 from fastimgproto.fixtures.data import simple_vis_npz_filepath
-from fastimgproto.scripts.config import (
-    default_config_path,
-    cli as makeconfig_cli,
-)
-from fastimgproto.scripts.image import (
-    cli as  imager_cli
-)
+from fastimgproto.scripts.config import cli as makeconfig_cli
+from fastimgproto.scripts.config import default_config_path
+from fastimgproto.scripts.image import cli as imager_cli
+
 
 def test_imager():
     runner = CliRunner()

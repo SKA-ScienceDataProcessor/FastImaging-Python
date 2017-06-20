@@ -1,12 +1,14 @@
 from __future__ import print_function
-import json
-import numpy as np
 
+import csv
+import json
+
+import numpy as np
 from click.testing import CliRunner
+
 from fastimgproto.fixtures.data import simple_vis_npz_filepath
 from fastimgproto.scripts.extract_lsm import cli as extract_lsm_cli
 from fastimgproto.skymodel.extraction import SumssSrc
-import csv
 
 
 def test_extract_lsm():

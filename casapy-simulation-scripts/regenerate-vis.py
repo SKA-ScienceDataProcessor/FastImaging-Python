@@ -1,6 +1,8 @@
 import math
+
 import numpy as np
 from astropy.coordinates import SkyCoord
+
 
 def l_cosine(ra, dec, ra0):
     """

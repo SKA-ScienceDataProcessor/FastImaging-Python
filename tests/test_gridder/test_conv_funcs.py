@@ -1,5 +1,6 @@
-import fastimgproto.gridder.conv_funcs as conv_funcs
 import numpy as np
+
+import fastimgproto.gridder.conv_funcs as conv_funcs
 
 
 def check_function_results_close(func, input_output_pairs,

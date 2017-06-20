@@ -4,14 +4,16 @@ Local sky model extraction code.
 Currently SUMSS specific, to be refactored in future as required.
 """
 from __future__ import print_function
-from astropy import units as u
-from astropy.coordinates import SkyCoord, Angle
+
 import math
+from collections import OrderedDict
+
 import numpy as np
 import pandas
-from collections import OrderedDict
-from fastimgproto.skymodel.helpers import PositionError, SkySource
+from astropy import units as u
+from astropy.coordinates import Angle, SkyCoord
 
+from fastimgproto.skymodel.helpers import PositionError, SkySource
 
 # http://www.astrop.physics.usyd.edu.au/sumsscat/description.html
 sumss_colnames = (

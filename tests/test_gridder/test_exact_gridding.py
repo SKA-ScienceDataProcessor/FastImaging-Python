@@ -1,9 +1,9 @@
-import fastimgproto.gridder.conv_funcs as conv_funcs
-from fastimgproto.gridder.kernel_generation import Kernel
-from fastimgproto.gridder.gridder import convolve_to_grid
-
 import numpy as np
 import pytest
+
+import fastimgproto.gridder.conv_funcs as conv_funcs
+from fastimgproto.gridder.gridder import convolve_to_grid
+from fastimgproto.gridder.kernel_generation import Kernel
 
 
 def test_single_pixel_overlap_pillbox():

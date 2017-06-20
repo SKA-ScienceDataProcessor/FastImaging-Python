@@ -1,10 +1,10 @@
 from __future__ import print_function
-import numpy as np
+
 import astropy.units as u
-from astropy.coordinates import (
-    EarthLocation, Latitude, Longitude, SkyCoord,
-)
+import numpy as np
+from astropy.coordinates import EarthLocation, Latitude, Longitude, SkyCoord
 from astropy.time import Time
+
 from fastimgproto.telescope import Telescope
 from fastimgproto.telescope.base import parse_itrf_ascii_to_xyz_and_labels
 from fastimgproto.telescope.data import meerkat_itrf_filepath

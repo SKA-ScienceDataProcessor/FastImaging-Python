@@ -5,10 +5,13 @@ import numpy as np
 from fastimgproto.fixtures.image import (
     evaluate_model_on_pixel_grid,
     gaussian_point_source,
-    uncorrelated_gaussian_noise_background
+    uncorrelated_gaussian_noise_background,
 )
 from fastimgproto.sourcefind.image import (
-    SourceFindImage, IslandParams, _estimate_rms)
+    IslandParams,
+    SourceFindImage,
+    _estimate_rms,
+)
 
 ydim = 128
 xdim = 64

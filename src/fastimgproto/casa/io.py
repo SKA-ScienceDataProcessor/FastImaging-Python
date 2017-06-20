@@ -1,12 +1,14 @@
 from __future__ import print_function
+
 import os
-import astropy.constants as const
-import casacore.tables as casatables
-import numpy as np
 import shutil
+from contextlib import closing
+
+import astropy.constants as const
+import numpy as np
 from drivecasa.utils import ensure_dir
 
-from contextlib import closing
+import casacore.tables as casatables
 
 
 def get_stokes_i_vis(vis_ms_path):

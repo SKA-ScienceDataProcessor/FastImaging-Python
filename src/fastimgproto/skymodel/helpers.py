@@ -2,10 +2,10 @@
 Basic classes used to help structure data related to skymodel, skyregions, etc.
 """
 
-from astropy.coordinates import Angle, SkyCoord
 import astropy.units as u
 import attr.validators
-from attr import attrs, attrib
+from astropy.coordinates import Angle, SkyCoord
+from attr import attrib, attrs
 
 
 @attrs

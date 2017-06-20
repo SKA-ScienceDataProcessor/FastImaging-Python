@@ -1,8 +1,9 @@
+import math
+
 import astropy.stats
 import numpy as np
+from attr import attrib, attrs
 from scipy import ndimage
-import math
-from attr import attrs, attrib
 
 
 def _positive_negative_sign_validator(instance, attribute, value):

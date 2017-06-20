@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import click
+
 import logging
 import sys
-import fastimgproto.casa.io as casa_io
+
+import click
 import numpy as np
+
+import fastimgproto.casa.io as casa_io
+
 
 @click.command()
 @click.argument('casavis', type=click.Path(exists=True))

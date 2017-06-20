@@ -1,6 +1,8 @@
 from __future__ import print_function
-import numpy as np
+
 import astropy.units as u
+import numpy as np
+
 import fastimgproto.visibility as visibility
 
 
@@ -34,4 +36,3 @@ def test_complex_gaussian_noise_generation():
         # print("S.D.:", std_dev)
         assert mean < 0.006
         assert np.fabs(std_dev - 5.0)< 0.1
-

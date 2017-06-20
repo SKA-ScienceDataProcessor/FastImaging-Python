@@ -1,6 +1,7 @@
 import astropy.units as u
 
 import fastimgproto.gridder.conv_funcs as kfuncs
+
 from .present import CPP_BINDINGS_PRESENT
 
 

@@ -1,5 +1,6 @@
-import fastimgproto.gridder.conv_funcs as conv_funcs
 import numpy as np
+
+import fastimgproto.gridder.conv_funcs as conv_funcs
 from fastimgproto.gridder.kernel_generation import Kernel
 
 

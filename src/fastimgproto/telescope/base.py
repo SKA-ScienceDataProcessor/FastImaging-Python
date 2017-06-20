@@ -7,9 +7,10 @@ import astropy.io.ascii as ascii
 import astropy.units as u
 import attr.validators
 import numpy as np
-from astropy.coordinates import (Latitude, Longitude, EarthLocation, )
+from astropy.coordinates import EarthLocation
 from astropy.table import Table
 from attr import attrib, attrs
+
 from fastimgproto.coords import (
     time_of_next_transit,
     xyz_to_uvw_rotation_matrix,

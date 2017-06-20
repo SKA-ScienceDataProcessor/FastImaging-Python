@@ -1,8 +1,9 @@
 import astropy.units as u
-from astropy.time import Time
-from astropy.coordinates import Longitude
-from fastimgproto.coords import time_of_next_transit
 import numpy as np
+from astropy.coordinates import Longitude
+from astropy.time import Time
+
+from fastimgproto.coords import time_of_next_transit
 
 
 def test_basic_functionality():

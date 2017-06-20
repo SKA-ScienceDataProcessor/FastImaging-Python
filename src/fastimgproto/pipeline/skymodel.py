@@ -1,11 +1,13 @@
 
-from astropy.utils.data import download_file
-from astropy.coordinates import SkyCoord
 import astropy.units as u
-from fastimgproto.skymodel.helpers import (SkyRegion, SkySource, )
+from astropy.coordinates import SkyCoord
+from astropy.utils.data import download_file
+
 from fastimgproto.skymodel.extraction import (
-    sumss_file_to_dataframe, lsm_extract
+    lsm_extract,
+    sumss_file_to_dataframe,
 )
+from fastimgproto.skymodel.helpers import SkyRegion, SkySource
 
 
 def get_lsm(field_of_view):

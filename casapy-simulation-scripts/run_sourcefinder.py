@@ -1,6 +1,6 @@
 from astropy.io import fits
-import fastimgproto.sourcefind as sf
 
+import fastimgproto.sourcefind as sf
 
 fits_path = './vla.image.fits'
 
