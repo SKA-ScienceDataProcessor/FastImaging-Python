@@ -38,10 +38,11 @@ def cli(config_json, input_npz, ):
        synthesis-imaging).
      * Run sourcefinding on the resulting diff-image.
     """
+    logging.basicConfig(level=logging.DEBUG)
 
     npz_content = np.load(input_npz)
     uvw_lambda = npz_content['uvw_lambda']
-    model_vis = npz_content['model']
+    local_skymodel = npz_content['skymodel']
     data_vis = npz_content['vis']
 
     config = json.load(config_json)
@@ -52,7 +53,7 @@ def cli(config_json, input_npz, ):
 
     sfimage = main(
         uvw_lambda=uvw_lambda,
-        model_vis=model_vis,
+        skymodel=local_skymodel,
         data_vis=data_vis,
         image_size=image_size,
         cell_size=cell_size,
@@ -60,13 +61,39 @@ def cli(config_json, input_npz, ):
         analysis_n_sigma=analysis_n_sigma,
     )
 
-    print("Found residual sources")
+    logger.info("Found residual sources")
     for found_src in sfimage.islands:
-        print(found_src)
+        logger.info(found_src)
+
+
+def generate_visibilities_from_local_skymodel(skymodel, uvw_baselines):
+    """
+    Generate a set of model visibilities given a skymodel and UVW-baselines.
+
+    Args:
+        skymodel (numpy.ndarray): The local skymodel.
+            Array of triples ``[l,m,flux_jy]`` , where ``l,m`` are the
+            directional cosines for this source, ``flux_jy`` is flux in Janskys.
+            Numpy array shape: (n_baselines, 3)
+        uvw_baselines (numpy.ndarray): UVW baselines (units of lambda).
+            Numpy array shape: (n_baselines, 3)
+    Returns (numpy.ndarray):
+        Complex visbilities sum for each baseline.
+            Numpy array shape: (n_baselines,)
+    """
+    model_vis = np.zeros(len(uvw_baselines), dtype=np.dtype(complex))
+    for src_entry in skymodel:
+        model_vis += visibility.visibilities_for_point_source(
+            uvw_baselines=uvw_baselines,
+            l=src_entry[0],
+            m=src_entry[1],
+            flux=src_entry[2],
+        )
+    return model_vis
 
 
 def main(uvw_lambda,
-         model_vis,
+         skymodel,
          data_vis,
          image_size,
          cell_size,
@@ -77,19 +104,25 @@ def main(uvw_lambda,
     Represents the difference-image + detect stages of the FastImaging pipeline.
     """
 
+    logger.info("Generating model visibilities from skymodel")
+    model_vis = generate_visibilities_from_local_skymodel(
+        skymodel=skymodel, uvw_baselines=uvw_lambda)
     # Subtract model-generated visibilities from incoming data
     residual_vis = data_vis - model_vis
 
     # Kernel generation - might configure this via config-file in future.
     kernel_support = 3
     kernel_func = GaussianSinc(trunc=kernel_support)
-    image, beam = imager.image_visibilities(residual_vis, uvw_lambda,
-                                            image_size=image_size,
-                                            cell_size=cell_size,
-                                            kernel_func=kernel_func,
-                                            kernel_support=kernel_support,
-                                            kernel_exact=True)
-
+    logger.info("Imaging residual visibilities")
+    with Tqdm() as pbar:
+        image, beam = imager.image_visibilities(residual_vis, uvw_lambda,
+                                                image_size=image_size,
+                                                cell_size=cell_size,
+                                                kernel_func=kernel_func,
+                                                kernel_support=kernel_support,
+                                                kernel_exact=True,
+                                                pbar=pbar)
+    logger.info("Running sourcefinder on image")
     sfimage = SourceFindImage(data=np.real(image),
                               detection_n_sigma=detection_n_sigma,
                               analysis_n_sigma=analysis_n_sigma,

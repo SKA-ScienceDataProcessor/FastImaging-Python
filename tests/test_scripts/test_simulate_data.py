@@ -16,6 +16,6 @@ def test_simulate_data():
         assert result.exit_code == 0
         with open(output_filename, 'rb') as f:
             output_data = np.load(f)
-            expected_keys = ('uvw_lambda', 'model', 'vis')
+            expected_keys = ('uvw_lambda', 'skymodel', 'vis')
             for k in expected_keys:
                 assert k in output_data

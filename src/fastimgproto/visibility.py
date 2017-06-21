@@ -78,7 +78,26 @@ def visibilities_for_point_source(uvw_baselines, l, m, flux):
     return flux * src_n * np.exp(-2j * np.pi * np.dot(uvw_baselines, src_offset))
 
 
-def visibilities_for_source_list(pointing_centre, source_list, uvw):
+def calculate_direction_cosines(pointing_centre, source):
+    """
+    Calculate direction-cosine coefficients for the given source
+
+    Args:
+        pointing_centre (astropy.coordinates.SkyCoord): Field pointing centre.
+        source (`fastimgproto.skymodel.helpers.SkySource`): Source.
+
+    Returns:
+        tuple: (l,m) cosine values.
+    """
+    sp = source.position
+    l = l_cosine(sp.ra.rad, sp.dec.rad, pointing_centre.ra.rad)
+    m = m_cosine(sp.ra.rad, sp.dec.rad, pointing_centre.ra.rad,
+                 pointing_centre.dec.rad)
+    return l, m
+
+
+def visibilities_for_source_list(pointing_centre, source_list, uvw,
+                                 progress_updater=None):
     """
     Generate noise-free visibilities from UVW baselines and point-sources.
 
@@ -97,11 +116,7 @@ def visibilities_for_source_list(pointing_centre, source_list, uvw):
 
     for src in source_list:
         assert isinstance(src, SkySource)
-        sp = src.position
-        l = l_cosine(sp.ra.rad, sp.dec.rad, pointing_centre.ra.rad)
-        m = m_cosine(sp.ra.rad, sp.dec.rad, pointing_centre.ra.rad,
-                     pointing_centre.dec.rad)
-
+        l, m = calculate_direction_cosines(pointing_centre, src)
         vis = visibilities_for_point_source(uvw, l, m,
                                             flux=src.flux.to(u.Jy).value)
         sumvis += vis

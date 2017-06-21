@@ -71,9 +71,12 @@ def cli(output_npz, nstep):
     all_sources = steady_sources + transient_sources
 
     # Now use UVW to generate visibilities from scratch...
-    # Simulate model data - known sources only, noise-free:
-    model_vis = visibility.visibilities_for_source_list(
-        pointing_centre, steady_sources, uvw_lambda)
+    # Store l,m cosines & fluxes for skymodel (known sources only):
+    local_skymodel = []
+    for src in steady_sources:
+        l, m = visibility.calculate_direction_cosines(pointing_centre, src)
+        local_skymodel.append((l,m,src.flux.to(u.Jy).value))
+    local_skymodel = np.asarray(local_skymodel,dtype=np.float_)
 
     # Simulate incoming data; includes transient sources, noise:
     logger.info("Simulating visibilities")
@@ -84,6 +87,6 @@ def cli(output_npz, nstep):
     # with open(output, 'wb') as outfile:
     np.savez(output_npz,
              uvw_lambda=uvw_lambda,
-             model=model_vis,
+             skymodel=local_skymodel,
              vis=data_vis,
              )
