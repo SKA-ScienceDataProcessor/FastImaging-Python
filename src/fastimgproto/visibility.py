@@ -39,7 +39,7 @@ def m_cosine(ra, dec, ra0, dec0):
             )
 
 
-def visibilities_for_point_source(dist_uvw, l, m, flux):
+def visibilities_for_point_source(uvw_baselines, l, m, flux):
     """
     Simulate visibilities for point source.
 
@@ -52,7 +52,7 @@ def visibilities_for_point_source(dist_uvw, l, m, flux):
     (uvw.lmn)
 
     Args:
-        dist_uvw (numpy.array): Array of 3-vectors representing
+        uvw_baselines (numpy.array): Array of 3-vectors representing
             baselines in UVW space. Implicit units are
             (dimensionless) multiples of wavelength, lambda.
             [numpy shape: (n_uvw, 3), dtype=np.float_]
@@ -75,7 +75,7 @@ def visibilities_for_point_source(dist_uvw, l, m, flux):
     # src - centre:
     src_offset = -np.array([l, m, src_n - 1])
 
-    return flux * src_n * np.exp(-2j * np.pi * np.dot(dist_uvw, src_offset))
+    return flux * src_n * np.exp(-2j * np.pi * np.dot(uvw_baselines, src_offset))
 
 
 def visibilities_for_source_list(pointing_centre, source_list, uvw):
@@ -130,5 +130,5 @@ def add_gaussian_noise(noise_level, vis, seed=None):
     """
     sigma = noise_level.to(u.Jansky).value
     rstate = np.random.RandomState(seed)
-    noise = rstate.normal(loc=0, scale=sigma, size=(len(vis),2))
-    return vis + (noise[:,0] + 1j*noise[:,1])
+    noise = rstate.normal(loc=0, scale=sigma, size=(len(vis), 2))
+    return vis + (noise[:, 0] + 1j * noise[:, 1])

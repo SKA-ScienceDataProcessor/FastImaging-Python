@@ -4,16 +4,21 @@ Simulated pipeline run
 from __future__ import print_function
 
 import json
+import logging
 
 import astropy.units as u
 import click
 import numpy as np
+from tqdm import tqdm as Tqdm
 
 import fastimgproto.imager as imager
+import fastimgproto.visibility as visibility
 from fastimgproto.gridder.conv_funcs import GaussianSinc
 from fastimgproto.sourcefind.image import SourceFindImage
 
 from .config import ConfigKeys, default_config_path
+
+logger = logging.getLogger()
 
 
 # @click.argument(
