@@ -89,7 +89,7 @@ class Telescope(object):
 
         Args:
             ant_itrf_xyz (numpy.ndarray): Array co-ordinatates in the ITRF frame
-            ant_labels (list): Antennae labels
+            ant_labels (list[str]): Antennae labels
         Returns:
             Telescope: A telescope class with the given array co-ords.
         """

@@ -73,8 +73,11 @@ autoclass_content = 'class'
 # Warn when references cannot be resolved:
 nitpicky = True
 nitpick_ignore = [
+    ("py:obj", "list"), # https://github.com/sphinx-doc/sphinx/issues/2688 (?)
+    ("py:obj", "list[str]"), 
     ("py:obj", "numpy.ndarray"),
-    ("py:obj", "astropy.units.Quantity"),
+    # ("py:obj", "astropy.units.Quantity"),
+    ("py:obj", "tqdm.tqdm"),
 ]
 
 
