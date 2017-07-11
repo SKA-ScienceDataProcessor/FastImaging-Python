@@ -44,6 +44,7 @@ def cli(config_json, input_npz, ):
     uvw_lambda = npz_content['uvw_lambda']
     local_skymodel = npz_content['skymodel']
     data_vis = npz_content['vis']
+    snr_weights = npz_content['snr_weights']
 
     config = json.load(config_json)
     cell_size = config[ConfigKeys.cell_size_arcsec] * u.arcsec
@@ -55,6 +56,7 @@ def cli(config_json, input_npz, ):
         uvw_lambda=uvw_lambda,
         skymodel=local_skymodel,
         data_vis=data_vis,
+        snr_weights=snr_weights,
         image_size=image_size,
         cell_size=cell_size,
         detection_n_sigma=detection_n_sigma,
@@ -95,6 +97,7 @@ def generate_visibilities_from_local_skymodel(skymodel, uvw_baselines):
 def main(uvw_lambda,
          skymodel,
          data_vis,
+         snr_weights,
          image_size,
          cell_size,
          detection_n_sigma,
@@ -116,6 +119,7 @@ def main(uvw_lambda,
     logger.info("Imaging residual visibilities")
     with Tqdm() as progress_bar:
         image, beam = imager.image_visibilities(residual_vis,
+                                                vis_weights=snr_weights,
                                                 uvw_lambda=uvw_lambda,
                                                 image_size=image_size,
                                                 cell_size=cell_size,

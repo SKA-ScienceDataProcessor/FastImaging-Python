@@ -21,7 +21,9 @@ def test_single_pixel_overlap_pillbox():
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv, vis=vis,
+                                               uv=uv,
+                                               vis=vis,
+                                               vis_weights=np.ones_like(vis),
                                                oversampling=None)
     assert vis_grid.sum() == vis.sum()
     expected_result = np.array(
@@ -52,12 +54,16 @@ def test_bounds_checking():
         grid = convolve_to_grid(kernel_func,
                                 support=support,
                                 image_size=n_image,
-                                uv=bad_uv, vis=vis)
+                                uv=bad_uv,
+                                vis=vis,
+                                vis_weights=np.ones_like(vis), )
 
     grid, _ = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=bad_uv, vis=vis,
+                               uv=bad_uv,
+                               vis=vis,
+                               vis_weights=np.ones_like(vis),
                                raise_bounds=False
                                )
     assert grid.sum() == 0.
@@ -67,20 +73,24 @@ def test_bounds_checking():
     good_uv = np.array([(0., 0.)])
     mixed_uv = np.array([(-3., 0),
                          (0., 0.)])
-    good_grid, _ = convolve_to_grid(kernel_func,
-                                    support=support,
-                                    image_size=n_image,
-                                    uv=good_uv,
-                                    vis=np.ones(len(good_uv), dtype=np.float_),
-                                    raise_bounds=False
-                                    )
-    mixed_grid, _ = convolve_to_grid(kernel_func,
-                                     support=support,
-                                     image_size=n_image,
-                                     uv=mixed_uv,
-                                     vis=np.ones(len(mixed_uv), dtype=np.float_),
-                                     raise_bounds=False
-                                     )
+    good_grid, _ = convolve_to_grid(
+        kernel_func,
+        support=support,
+        image_size=n_image,
+        uv=good_uv,
+        vis=np.ones(len(good_uv), dtype=np.float_),
+        vis_weights=np.ones(len(good_uv), dtype=np.float_),
+        raise_bounds=False
+    )
+    mixed_grid, _ = convolve_to_grid(
+        kernel_func,
+        support=support,
+        image_size=n_image,
+        uv=mixed_uv,
+        vis=np.ones(len(mixed_uv), dtype=np.float_),
+        vis_weights=np.ones(len(mixed_uv), dtype=np.float_),
+        raise_bounds=False
+    )
 
     assert (good_grid == mixed_grid).all()
 
@@ -96,7 +106,10 @@ def test_multi_pixel_pillbox():
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv, vis=vis)
+                                               uv=uv,
+                                               vis=vis,
+                                               vis_weights=np.ones_like(vis),
+                                               )
     assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
@@ -128,7 +141,10 @@ def test_small_pillbox():
     grid, _ = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=uv, vis=vis)
+                               uv=uv,
+                               vis=vis,
+                               vis_weights=np.ones_like(vis),
+                               )
     assert grid.sum() == vis.sum()
     # This time we're on a mid-point, with a smaller pillbox
     # so we should get a 2x2 output
@@ -162,7 +178,10 @@ def test_multiple_complex_vis():
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv, vis=vis)
+                                               uv=uv,
+                                               vis=vis,
+                                               vis_weights=np.ones_like(vis),
+                                               )
     assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
@@ -200,7 +219,10 @@ def test_nearby_complex_vis():
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv, vis=vis)
+                                               uv=uv,
+                                               vis=vis,
+                                               vis_weights=np.ones_like(vis),
+                                               )
     assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
@@ -237,8 +259,10 @@ def test_triangle():
     grid, _ = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=uv, vis=vis)
-
+                               uv=uv,
+                               vis=vis,
+                               vis_weights=np.ones_like(vis),
+                               )
     kernel = Kernel(kernel_func=kernel_func, support=support,
                     offset=subpix_offset[0],
                     oversampling=1)

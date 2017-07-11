@@ -8,7 +8,9 @@ def fft_to_image_plane(uv_grid):
     return np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(uv_grid)))
 
 
-def image_visibilities(vis, uvw_lambda,
+def image_visibilities(vis,
+                       vis_weights,
+                       uvw_lambda,
                        image_size, cell_size,
                        kernel_func, kernel_support,
                        kernel_exact=True,
@@ -74,6 +76,7 @@ def image_visibilities(vis, uvw_lambda,
                                              image_size=image_size_int,
                                              uv=uv_in_pixels,
                                              vis=vis,
+                                             vis_weights=vis_weights,
                                              exact=kernel_exact,
                                              oversampling=kernel_oversampling,
                                              progress_bar=progress_bar

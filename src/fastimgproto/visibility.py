@@ -75,7 +75,8 @@ def visibilities_for_point_source(uvw_baselines, l, m, flux):
     # src - centre:
     src_offset = -np.array([l, m, src_n - 1])
 
-    return flux * src_n * np.exp(-2j * np.pi * np.dot(uvw_baselines, src_offset))
+    return flux * src_n * np.exp(
+        -2j * np.pi * np.dot(uvw_baselines, src_offset))
 
 
 def calculate_direction_cosines(pointing_centre, source):
@@ -117,9 +118,8 @@ def visibilities_for_source_list(pointing_centre, source_list, uvw,
     for src in source_list:
         assert isinstance(src, SkySource)
         l, m = calculate_direction_cosines(pointing_centre, src)
-        vis = visibilities_for_point_source(uvw, l, m,
-                                            flux=src.flux.to(u.Jy).value)
-        sumvis += vis
+        sumvis += visibilities_for_point_source(uvw, l, m,
+                                                flux=src.flux.to(u.Jy).value)
 
     return sumvis
 
