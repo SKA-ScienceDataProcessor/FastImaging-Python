@@ -102,8 +102,7 @@ def convolve_to_grid(kernel_func,
     # At the same time as we grid the visibilities, we track the grid-sampling
     # weights:
     sampling_grid = np.zeros_like(vis_grid)
-    weights_grid = np.zeros_like(vis_grid)
-    # Use either `1.0` or `1.0 +0j` depending on input dtype:
+    # We will compose the sample grid of floats or complex to match input dtype:
     typed_one = np.array(1, dtype=vis.dtype)
 
     if not exact:
@@ -117,7 +116,7 @@ def convolve_to_grid(kernel_func,
                            'Gridding visibilities')
     for idx in good_vis_idx:
         weight = vis_weights[idx]
-        if weight == 0:
+        if weight == 0.:
             continue  # Skip this visibility if zero-weighted
         gc_x, gc_y = kernel_centre_on_grid[idx]
         # Generate a convolution kernel with the precise offset required:
