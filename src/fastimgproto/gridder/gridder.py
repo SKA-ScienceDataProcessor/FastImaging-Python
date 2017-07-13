@@ -132,8 +132,16 @@ def convolve_to_grid(kernel_func,
         downweighted_kernel = weight * normed_kernel_array
         vis_grid[yrange, xrange] += vis[idx] * downweighted_kernel
         sampling_grid[yrange, xrange] += typed_one * downweighted_kernel
-        if pbar is not None:
-            pbar.update(1)
+        if progress_bar is not None:
+            progress_bar.update(1)
+
+    # Finally, renormalise the visibilities by the sampled weights total
+    # NB, this is computationally expensive, and can be side-stepped
+    # by simply tracking the sum of 'good_vis' weights, then normalizing
+    # source-fluxes later on. But we do it here for completeness.
+    sample_grid_total = sampling_grid.sum()
+    if sample_grid_total != 0. :
+        vis_grid /= sample_grid_total
     return vis_grid, sampling_grid
 
 

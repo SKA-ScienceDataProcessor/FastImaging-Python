@@ -172,17 +172,18 @@ def test_oversampled_gridding():
                    ])
 
     vis = np.ones(len(uv), dtype=np.float_)
-
+    vis_weights=np.ones_like(vis)
     kernel_func = conv_funcs.Triangle(2.0)
 
-    grid, _ = convolve_to_grid(kernel_func,
+    vis_grid, sample_grid = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
                                uv=uv,
                                vis=vis,
-                               vis_weights=np.ones_like(vis),
+                               vis_weights=vis_weights,
                                exact=False,
                                oversampling=9
                                )
 
-    assert grid.sum() == vis.sum()
+    # simplification true since weights are all 1:
+    assert vis_grid.sum() == vis.sum() / vis_weights.sum()
