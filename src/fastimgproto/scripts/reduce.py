@@ -114,14 +114,15 @@ def main(uvw_lambda,
     kernel_support = 3
     kernel_func = GaussianSinc(trunc=kernel_support)
     logger.info("Imaging residual visibilities")
-    with Tqdm() as pbar:
-        image, beam = imager.image_visibilities(residual_vis, uvw_lambda,
+    with Tqdm() as progress_bar:
+        image, beam = imager.image_visibilities(residual_vis,
+                                                uvw_lambda=uvw_lambda,
                                                 image_size=image_size,
                                                 cell_size=cell_size,
                                                 kernel_func=kernel_func,
                                                 kernel_support=kernel_support,
                                                 kernel_exact=True,
-                                                pbar=pbar)
+                                                progress_bar=progress_bar)
     logger.info("Running sourcefinder on image")
     sfimage = SourceFindImage(data=np.real(image),
                               detection_n_sigma=detection_n_sigma,

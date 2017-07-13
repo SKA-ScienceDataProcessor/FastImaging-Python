@@ -1,6 +1,5 @@
-from memory_profiler import profile
-
 from fastimgproto.sourcefind.image import SourceFindImage
+from memory_profiler import profile
 
 
 @profile

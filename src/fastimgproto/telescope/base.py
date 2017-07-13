@@ -16,6 +16,7 @@ from fastimgproto.coords import (
     xyz_to_uvw_rotation_matrix,
     z_rotation_matrix,
 )
+from fastimgproto.utils import reset_progress_bar
 
 _validator_optional_ndarray = attr.validators.optional(
     attr.validators.instance_of(np.ndarray))
@@ -208,7 +209,7 @@ class Telescope(object):
         return lha_uvw_map
 
     def uvw_tracking_skycoord(self, pointing_centre, obs_times,
-                              pbar=None):
+                              progress_bar=None):
         """
         Calculate the UVW-array towards pointing centre for all obs_times.
 
@@ -222,16 +223,15 @@ class Telescope(object):
                 for UVW calculation.
             obs_times (list): List of :class:`astropy.time.Time`, the instants
                 of observation.
-            pbar (tqdm.tqdm): [Optional] progressbar to update.
+            progress_bar (tqdm.tqdm): [Optional] progressbar to update.
         Returns:
             astropy.units.Quantity: UVW-array, with units of metres.
         """
         n_baselines = len(self.baseline_local_xyz)
         uvw_array = np.zeros((len(obs_times) * n_baselines, 3),
                              dtype=np.float_) * self.baseline_local_xyz.unit
-        if pbar is not None:
-            pbar.total=len(obs_times)
-            pbar.desc = 'Generating UVW-baselines'
+        if progress_bar is not None:
+            reset_progress_bar(progress_bar, len(obs_times), 'Generating UVW-baselines')
 
         for idx, time in enumerate(obs_times):
             lha = self.lha(pointing_centre.ra, time)
@@ -239,8 +239,8 @@ class Telescope(object):
             uvw_array[output_slice] = self.uvw_at_local_hour_angle(
                 local_hour_angle=lha, dec=pointing_centre.dec
             )
-            if pbar is not None:
-                pbar.update()
+            if progress_bar is not None:
+                progress_bar.update()
         return uvw_array
 
 

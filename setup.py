@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import versioneer
 from setuptools import find_packages, setup
+
+import versioneer
 
 install_requires = [
     'astropy',

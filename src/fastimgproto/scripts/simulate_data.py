@@ -42,10 +42,10 @@ def cli(output_npz, nstep):
                                           start_time=Time('2017-01-01'))
     obs_times = transit_time + np.linspace(-1, 1, nstep) * u.hr
     logger.info("Generating UVW-baselines for {} timesteps".format(nstep))
-    with Tqdm() as pbar:
+    with Tqdm() as progress_bar:
         uvw_m = telescope.uvw_tracking_skycoord(
             pointing_centre, obs_times,
-            pbar=pbar
+            progress_bar=progress_bar
         )
     # From here on we use UVW as multiples of wavelength, lambda:
     uvw_lambda = (uvw_m / wavelength).to(u.dimensionless_unscaled).value

@@ -14,7 +14,7 @@ def image_visibilities(vis, uvw_lambda,
                        kernel_exact=True,
                        kernel_oversampling=0,
                        normalize=True,
-                       pbar=None):
+                       progress_bar=None):
     """
     Args:
         vis (numpy.ndarray): Complex visibilities.
@@ -49,7 +49,7 @@ def image_visibilities(vis, uvw_lambda,
             should be normalized such that the beam peaks at a value of
             1.0 Jansky. You normally want this to be true, but it may be
             interesting to check the raw values for debugging purposes.
-        pbar (tqdm.tqdm): [Optional] progressbar to update.
+        progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
         tuple: (image, beam)
@@ -76,7 +76,7 @@ def image_visibilities(vis, uvw_lambda,
                                              vis=vis,
                                              exact=kernel_exact,
                                              oversampling=kernel_oversampling,
-                                             pbar=pbar
+                                             progress_bar=progress_bar
                                              )
     image = fft_to_image_plane(vis_grid)
     beam = fft_to_image_plane(sample_grid)

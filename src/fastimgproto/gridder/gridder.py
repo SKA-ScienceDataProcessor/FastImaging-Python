@@ -7,17 +7,21 @@ import numpy as np
 import tqdm
 
 from fastimgproto.gridder.kernel_generation import Kernel
+from fastimgproto.utils import reset_progress_bar
 
 logger = logging.getLogger(__name__)
 
 
-def convolve_to_grid(kernel_func, support,
+def convolve_to_grid(kernel_func,
+                     support,
                      image_size,
-                     uv, vis,
+                     uv,
+                     vis,
+                     vis_weights,
                      exact=True,
                      oversampling=0,
                      raise_bounds=True,
-                     pbar=None):
+                     progress_bar=None):
     """
     Grid visibilities, calculating the exact kernel distribution for each.
 
@@ -60,7 +64,7 @@ def convolve_to_grid(kernel_func, support,
             Larger values give a finer-sampled set of pre-cached kernels.
         raise_bounds (bool): Raise an exception if any of the UV
             samples lie outside (or too close to the edge) of the grid.
-        pbar (tqdm.tqdm): [Optional] progressbar to update.
+        progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
         tuple: (vis_grid, sampling_grid)
@@ -105,10 +109,9 @@ def convolve_to_grid(kernel_func, support,
         oversampled_offset = calculate_oversampled_kernel_indices(
             uv_frac, oversampling)
     logger.debug("Gridding {} visibilities".format(len(good_vis_idx)))
-    if pbar is not None:
-        pbar.total = len(good_vis_idx)
-        pbar.n = 0
-        pbar.set_description('Gridding visibilities')
+    if progress_bar is not None:
+        reset_progress_bar(progress_bar, len(good_vis_idx),
+                           'Gridding visibilities')
     for idx in good_vis_idx:
         gc_x, gc_y = kernel_centre_on_grid[idx]
         # Generate a convolution kernel with the precise offset required:
