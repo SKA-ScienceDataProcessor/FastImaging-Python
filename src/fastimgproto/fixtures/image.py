@@ -27,7 +27,7 @@ def gaussian_point_source(x_centre,
                       y_mean=y_centre,
                       x_stddev=semimajor_gaussian_sigma,
                       y_stddev=semiminor_gaussian_sigma,
-                      theta=position_angle.to(u.rad)
+                      theta=position_angle.to(u.rad).value
                       )
 
 

@@ -9,6 +9,7 @@ import click
 import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
+from scipy.stats import lognorm
 from tqdm import tqdm as Tqdm
 
 import fastimgproto.visibility as visibility
@@ -84,9 +85,18 @@ def cli(output_npz, nstep):
         pointing_centre, all_sources, uvw_lambda)
     data_vis = visibility.add_gaussian_noise(vis_noise_level, data_vis)
 
+    # Generate some SNR weights
+    # Current implementation has no theoretical basis, just picked an arbitrary
+    # plausible-looking distribution:
+    snr_weights = np.minimum(1.0, lognorm.rvs(s=0.25, size=len(data_vis)))
+
+    #Alternatively, just assume perfect data:
+    # snr_weights = np.ones_like(data_vis,dtype=np.float_)
+
     # with open(output, 'wb') as outfile:
     np.savez(output_npz,
              uvw_lambda=uvw_lambda,
              skymodel=local_skymodel,
              vis=data_vis,
+             snr_weights=snr_weights,
              )

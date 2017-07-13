@@ -89,8 +89,8 @@ def test_fractional_coord_in_2d_case():
 
     output = calculate_oversampled_kernel_indices(input, oversampling)
     assert output.shape == input.shape
-    assert (io_pairs[:, 1] == output[:,0]).all()
-    assert (io_pairs[:, 1] == output[:,1]).all()
+    assert (io_pairs[:, 1] == output[:, 0]).all()
+    assert (io_pairs[:, 1] == output[:, 1]).all()
 
 
 def test_kernel_caching():
@@ -151,7 +151,7 @@ def test_kernel_caching():
                 ## Sanity check - we expect the exact-calculated kernel to
                 ## be different by a small amount
                 diff = (
-                aligned_exact_kernel.array - unaligned_exact_kernel.array)
+                    aligned_exact_kernel.array - unaligned_exact_kernel.array)
                 eps = 10e-9
                 assert not (np.fabs(diff) < eps).all()
 
@@ -172,15 +172,18 @@ def test_oversampled_gridding():
                    ])
 
     vis = np.ones(len(uv), dtype=np.float_)
-
+    vis_weights=np.ones_like(vis)
     kernel_func = conv_funcs.Triangle(2.0)
 
-    grid, _ = convolve_to_grid(kernel_func,
+    vis_grid, sample_grid = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=uv, vis=vis,
+                               uv=uv,
+                               vis=vis,
+                               vis_weights=vis_weights,
                                exact=False,
                                oversampling=9
                                )
 
-    assert grid.sum() == vis.sum()
+    # simplification true since weights are all 1:
+    assert vis_grid.sum() == vis.sum() / vis_weights.sum()

@@ -39,6 +39,7 @@ def cli(config_json, in_vis, out_img):
     npz_data_dict = np.load(in_vis)
     uvw_lambda = npz_data_dict['uvw_lambda']
     vis = npz_data_dict['vis']
+    snr_weights = npz_data_dict['snr_weights']
 
     # Will move this to a config option later
     kernel_support = 3
@@ -46,6 +47,7 @@ def cli(config_json, in_vis, out_img):
 
     with Tqdm() as progress_bar:
         image, beam = imager.image_visibilities(vis,
+                                                vis_weights=snr_weights,
                                                 uvw_lambda=uvw_lambda,
                                                 image_size=image_size,
                                                 cell_size=cell_size,

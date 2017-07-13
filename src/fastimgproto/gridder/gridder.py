@@ -59,6 +59,8 @@ def convolve_to_grid(kernel_func,
             assumed ordering is u-then-v, i.e. `u, v = uv[idx]`
         vis (numpy.ndarray): Complex visibilities.
             1d array, shape: `(n_vis,)`.
+        vis_weights (numpy.ndarray): Visibility weights.
+            1d array, shape: `(n_vis,)`.
         exact (bool): Calculate exact kernel-values for every UV-sample.
         oversampling (int): Controls kernel-generation if ``exact==False``.
             Larger values give a finer-sampled set of pre-cached kernels.
@@ -100,7 +102,7 @@ def convolve_to_grid(kernel_func,
     # At the same time as we grid the visibilities, we track the grid-sampling
     # weights:
     sampling_grid = np.zeros_like(vis_grid)
-    # Use either `1.0` or `1.0 +0j` depending on input dtype:
+    # We will compose the sample grid of floats or complex to match input dtype:
     typed_one = np.array(1, dtype=vis.dtype)
 
     if not exact:
@@ -113,22 +115,33 @@ def convolve_to_grid(kernel_func,
         reset_progress_bar(progress_bar, len(good_vis_idx),
                            'Gridding visibilities')
     for idx in good_vis_idx:
+        weight = vis_weights[idx]
+        if weight == 0.:
+            continue  # Skip this visibility if zero-weighted
         gc_x, gc_y = kernel_centre_on_grid[idx]
         # Generate a convolution kernel with the precise offset required:
         xrange = slice(gc_x - support, gc_x + support + 1)
         yrange = slice(gc_y - support, gc_y + support + 1)
         if exact:
             kernel = Kernel(kernel_func=kernel_func, support=support,
-                            offset=uv_frac[idx])
+                            offset=uv_frac[idx], normalize=True)
             normed_kernel_array = kernel.array
         else:
             normed_kernel_array = kernel_cache[
                 tuple(oversampled_offset[idx])].array
+        downweighted_kernel = weight * normed_kernel_array
+        vis_grid[yrange, xrange] += vis[idx] * downweighted_kernel
+        sampling_grid[yrange, xrange] += typed_one * downweighted_kernel
+        if progress_bar is not None:
+            progress_bar.update(1)
 
-        vis_grid[yrange, xrange] += vis[idx] * normed_kernel_array
-        sampling_grid[yrange, xrange] += typed_one * normed_kernel_array
-        if pbar is not None:
-            pbar.update(1)
+    # Finally, renormalise the visibilities by the sampled weights total
+    # NB, this is computationally expensive, and can be side-stepped
+    # by simply tracking the sum of 'good_vis' weights, then normalizing
+    # source-fluxes later on. But we do it here for completeness.
+    sample_grid_total = sampling_grid.sum()
+    if sample_grid_total != 0. :
+        vis_grid /= sample_grid_total
     return vis_grid, sampling_grid
 
 
