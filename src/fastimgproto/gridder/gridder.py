@@ -23,7 +23,10 @@ def convolve_to_grid(kernel_func,
                      raise_bounds=True,
                      progress_bar=None):
     """
-    Grid visibilities, calculating the exact kernel distribution for each.
+    Grid visibilities using convolutional gridding.
+
+    Returns the **un-normalized** weighted visibilities; the
+    weights-renormalization factor can be calculated by summing the sample grid.
 
     If ``exact == True`` then exact gridding is used, i.e. the kernel is
     recalculated for each visibility, with precise sub-pixel offset according to
@@ -135,13 +138,6 @@ def convolve_to_grid(kernel_func,
         if progress_bar is not None:
             progress_bar.update(1)
 
-    # Finally, renormalise the visibilities by the sampled weights total
-    # NB, this is computationally expensive, and can be side-stepped
-    # by simply tracking the sum of 'good_vis' weights, then normalizing
-    # source-fluxes later on. But we do it here for completeness.
-    sample_grid_total = sampling_grid.sum()
-    if sample_grid_total != 0. :
-        vis_grid /= sample_grid_total
     return vis_grid, sampling_grid
 
 

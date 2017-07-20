@@ -186,4 +186,4 @@ def test_oversampled_gridding():
                                )
 
     # simplification true since weights are all 1:
-    assert vis_grid.sum() == vis.sum() / vis_weights.sum()
+    assert vis_grid.sum() == vis.sum()

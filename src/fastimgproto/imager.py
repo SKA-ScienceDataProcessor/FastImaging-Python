@@ -83,6 +83,16 @@ def image_visibilities(vis,
                                              )
     image = fft_to_image_plane(vis_grid)
     beam = fft_to_image_plane(sample_grid)
+
+    total_sample_weight = sample_grid.sum()
+    # To calculate the normalization factor:
+    # We correct for the FFT scale factor of 1/image_size**2
+    # (cf https://docs.scipy.org/doc/numpy/reference/routines.fft.html#implementation-details)
+    # And then divide by the total sample weight to renormalize the visibilities.
+    if total_sample_weight!=0:
+        renormalization_factor = (image_size_int*image_size_int)/total_sample_weight
+        beam *= renormalization_factor
+        image *= renormalization_factor
     if normalize:
         beam_max = np.max(np.real(beam))
         beam /= beam_max

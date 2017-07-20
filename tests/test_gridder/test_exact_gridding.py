@@ -36,7 +36,8 @@ def test_single_pixel_overlap_pillbox():
          [0., 0., 0., 0., 0., 0., 0., 0., ],
          [0., 0., 0., 0., 0., 0., 0., 0., ]]
     )
-    assert (expected_sample_grid * vis_amplitude == vis_grid).all()
+    assert (expected_sample_grid * vis_amplitude * vis_weights.sum()
+            == vis_grid).all()
     assert (expected_sample_grid * vis_weights.sum() == sampling_grid).all()
 
 
@@ -184,7 +185,7 @@ def test_multiple_complex_vis():
                                                vis_weights=vis_weights,
                                                )
     # simplification true since weights are all 1:
-    assert vis_grid.sum() == vis.sum() / vis_weights.sum()
+    assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
     # 3x3 pillbox
@@ -201,7 +202,7 @@ def test_multiple_complex_vis():
          [0., v, v, v, 0., 0., 0., 0.],
          [0., 0., 0., 0., 0., 0., 0., 0.]]
     )
-    assert (expected_sample_grid / sampling_grid.sum() == vis_grid).all()
+    assert (expected_sample_grid  == vis_grid).all()
     assert (expected_sample_grid == sampling_grid).all()
 
 
@@ -227,7 +228,7 @@ def test_nearby_complex_vis():
                                                vis_weights=vis_weights,
                                                )
     # simplification true since weights are all 1:
-    assert vis_grid.sum() == vis.sum() / vis_weights.sum()
+    assert vis_grid.sum() == vis.sum()
 
     # Since uv is precisely on a sampling point, we'll get a
     # 3x3 pillbox
@@ -244,8 +245,8 @@ def test_nearby_complex_vis():
          [0., v, v, v, 0., 0., 0., 0.],
          [0., 0., 0., 0., 0., 0., 0., 0.]]
     )
-
-    assert (expected_sample_grid / vis_weights.sum() == vis_grid).all()
+    # simplification true since weights are all 1:
+    assert (expected_sample_grid == vis_grid).all()
     assert (expected_sample_grid == sampling_grid).all()
 
 

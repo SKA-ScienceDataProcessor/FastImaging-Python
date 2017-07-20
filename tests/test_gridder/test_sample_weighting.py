@@ -85,6 +85,6 @@ def test_natural_weighting():
          [0., 0., 0., 0., 0., 0., 0., 0., ]]
     )
     assert (
-    expected_sample_locations * vis_weights.sum() == sampling_grid).all()
+    expected_sample_locations == sampling_grid/sampling_grid.sum()).all()
     assert ((expected_sample_locations * natural_weighted_sum) ==
-                vis_grid).all()
+                vis_grid / sampling_grid.sum()).all()
