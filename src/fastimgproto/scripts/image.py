@@ -46,8 +46,7 @@ def cli(config_json, in_vis, out_img):
     kernel_func = GaussianSinc(trunc=kernel_support)
 
     with Tqdm() as progress_bar:
-        image, beam = imager.image_visibilities(vis,
-                                                vis_weights=snr_weights,
+        image, beam = imager.image_visibilities(vis, vis_weights=snr_weights,
                                                 uvw_lambda=uvw_lambda,
                                                 image_size=image_size,
                                                 cell_size=cell_size,
@@ -55,8 +54,7 @@ def cli(config_json, in_vis, out_img):
                                                 kernel_support=kernel_support,
                                                 kernel_exact=True,
                                                 kernel_oversampling=None,
-                                                progress_bar=progress_bar
-                                                )
+                                                progress_bar=progress_bar)
 
     np.savez(out_img, image=image, beam=beam)
     sys.exit(0)

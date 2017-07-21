@@ -8,15 +8,17 @@ def fft_to_image_plane(uv_grid):
     return np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(uv_grid)))
 
 
-def image_visibilities(vis,
-                       vis_weights,
-                       uvw_lambda,
-                       image_size, cell_size,
-                       kernel_func, kernel_support,
-                       kernel_exact=True,
-                       kernel_oversampling=0,
-                       normalize=True,
-                       progress_bar=None):
+def image_visibilities(
+        vis,
+        vis_weights,
+        uvw_lambda,
+        image_size,
+        cell_size,
+        kernel_func,
+        kernel_support,
+        kernel_exact=True,
+        kernel_oversampling=0,
+        progress_bar=None):
     """
     Args:
         vis (numpy.ndarray): Complex visibilities.
@@ -47,10 +49,6 @@ def image_visibilities(vis,
         kernel_oversampling (int): (Or None). Controls kernel-generation,
             see :func:`fastimgproto.gridder.gridder.convolve_to_grid` for
             details.
-        normalize (bool): Whether or not the returned image and beam
-            should be normalized such that the beam peaks at a value of
-            1.0 Jansky. You normally want this to be true, but it may be
-            interesting to check the raw values for debugging purposes.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
@@ -89,12 +87,10 @@ def image_visibilities(vis,
     # We correct for the FFT scale factor of 1/image_size**2
     # (cf https://docs.scipy.org/doc/numpy/reference/routines.fft.html#implementation-details)
     # And then divide by the total sample weight to renormalize the visibilities.
-    if total_sample_weight!=0:
-        renormalization_factor = (image_size_int*image_size_int)/total_sample_weight
+    if total_sample_weight != 0:
+        renormalization_factor = (
+                                     image_size_int * image_size_int) / total_sample_weight
         beam *= renormalization_factor
         image *= renormalization_factor
-    if normalize:
-        beam_max = np.max(np.real(beam))
-        beam /= beam_max
-        image /= beam_max
+
     return (image, beam)

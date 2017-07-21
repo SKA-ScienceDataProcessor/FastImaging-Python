@@ -38,6 +38,7 @@ def cli(casavis, outdir):
     kernel_support = 3
     kernel_func = GaussianSinc(trunc=kernel_support)
     image, beam = imager.image_visibilities(vis, uvw_lambda,
+                                            uvw_lambda=image_size,
                                             image_size=image_size,
                                             cell_size=cell_size,
                                             kernel_func=kernel_func,

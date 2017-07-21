@@ -138,6 +138,7 @@ def convolve_to_grid(kernel_func,
         if progress_bar is not None:
             progress_bar.update(1)
 
+
     return vis_grid, sampling_grid
 
 
