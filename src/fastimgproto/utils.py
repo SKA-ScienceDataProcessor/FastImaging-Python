@@ -1,3 +1,4 @@
+import numpy as np
 
 
 def reset_progress_bar(progress_bar, total, description="Doing something"):
@@ -24,3 +25,22 @@ def reset_progress_bar(progress_bar, total, description="Doing something"):
     progress_bar.total=total
     progress_bar.desc=description
     return
+
+
+def values_close(c1, c2, tol=np.float_(1e-8)):
+    """
+    Check if two complex values are almost the same.
+
+    (See also: `pytest.approx` - but it's unclear if that works for complex
+    values.)
+
+    Args:
+        c1 (complex): Value 1
+        c2 (complex): Value 2
+        tol (float): Largest tolerated difference
+
+    Returns:
+        bool: True if  `|(c1-c2)| < tol`
+    """
+    diff_amp = np.absolute(c1 - c2)
+    return diff_amp < tol

@@ -1,12 +1,13 @@
-import numpy as np
 import astropy.units as u
+import numpy as np
 
 import fastimgproto.gridder.conv_funcs as conv_funcs
 from fastimgproto.imager import image_visibilities
+from fastimgproto.utils import values_close
 
 
 def test_normalization():
-    n_image = 16  # pixel co-ords -8 through 7.
+    n_image = 16 * u.pix # pixel co-ords -8 through 7.
     support = 3
     uvw_pixel_coords = np.array([
         (-4., 0, 0),
@@ -22,15 +23,31 @@ def test_normalization():
     grid_pixel_width_lambda = 1.0 / (cell_size.to(u.rad) * n_image)
     uvw_lambda = uvw_pixel_coords * grid_pixel_width_lambda.value
 
+    kernel_func=conv_funcs.Gaussian(trunc=2.5)
     image, beam = image_visibilities(vis,
                                      vis_weights=vis_weights,
                                      uvw_lambda=uvw_lambda,
-                                     image_size=n_image * u.pix,
+                                     image_size=n_image,
                                      cell_size=cell_size,
-                                     kernel_func=conv_funcs.Gaussian(trunc=2.5),
+                                     kernel_func=kernel_func,
                                      kernel_support=3,
 
                                      )
 
-    assert beam.max() == 1.0
-    assert image.max() == vis_amplitude
+    assert values_close(beam.max(), 1.0)
+    assert values_close(image.max(), vis_amplitude)
+
+    # Now try with Sinc kernel:
+    kernel_func=conv_funcs.Sinc(trunc=3.)
+    image, beam = image_visibilities(vis,
+                                     vis_weights=vis_weights,
+                                     uvw_lambda=uvw_lambda,
+                                     image_size=n_image,
+                                     cell_size=cell_size,
+                                     kernel_func=kernel_func,
+                                     kernel_support=3,
+
+                                     )
+
+    assert values_close(beam.max(), 1.0)
+    assert values_close(image.max(), vis_amplitude)
