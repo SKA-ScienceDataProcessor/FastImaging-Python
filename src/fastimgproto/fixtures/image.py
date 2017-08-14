@@ -2,11 +2,12 @@ import astropy.constants as const
 import astropy.units as u
 import numpy as np
 from astropy.coordinates import SkyCoord
-from astropy.modeling.models import Gaussian2D
+from astropy.modeling.models import Gaussian2D as AstropyGauss2d
 from astropy.time import Time
 
 import fastimgproto.visibility as visibility
 from fastimgproto.skymodel.helpers import SkySource
+from fastimgproto.sourcefind.fit import Gaussian2dFit
 from fastimgproto.telescope.readymade import Meerkat
 
 
@@ -18,17 +19,42 @@ def uncorrelated_gaussian_noise_background(shape, mean=0, sigma=1.0):
 def gaussian_point_source(x_centre,
                           y_centre,
                           amplitude=1.0,
-                          semimajor_gaussian_sigma=1.5,
-                          semiminor_gaussian_sigma=1.2,
-                          position_angle=1. * u.rad,
+                          semimajor=1.5,
+                          semiminor=1.2,
+                          theta=1, #rad
                           ):
-    return Gaussian2D(amplitude=amplitude,
-                      x_mean=x_centre,
-                      y_mean=y_centre,
-                      x_stddev=semimajor_gaussian_sigma,
-                      y_stddev=semiminor_gaussian_sigma,
-                      theta=position_angle.to(u.rad).value
-                      )
+    """
+    Wrapper around Gaussian2dFit providing some default values
+
+    Args:
+        x_centre:
+        y_centre:
+        amplitude:
+        semimajor:
+        semiminor:
+        theta:
+
+    Returns:
+        Gaussian2dFit
+    """
+    return Gaussian2dFit(amplitude=amplitude,
+                         x_centre=x_centre,
+                         y_centre=y_centre,
+                         semimajor=semimajor,
+                         semiminor=semiminor,
+                         theta=theta
+                         )
+
+
+def add_gaussian2d_to_image(gauss2d_fit, image):
+    model = AstropyGauss2d(amplitude=gauss2d_fit.amplitude,
+                           x_mean=gauss2d_fit.x_centre,
+                           y_mean=gauss2d_fit.y_centre,
+                           x_stddev=gauss2d_fit.semimajor,
+                           y_stddev=gauss2d_fit.semiminor,
+                           theta=gauss2d_fit.theta
+                           )
+    image += evaluate_model_on_pixel_grid(image.shape, model)
 
 
 def evaluate_model_on_pixel_grid(image_shape, model):
@@ -37,8 +63,7 @@ def evaluate_model_on_pixel_grid(image_shape, model):
     return model(xgrid, ygrid)
 
 
-
-def sample_sim_radio_image():
+def sample_sim_radio_image(nstep):
     """
     Simulate a sample radio-image, to use as test-data in sourcefinding.
     """
@@ -51,10 +76,9 @@ def sample_sim_radio_image():
                                           start_time=Time('2017-01-01'))
     obs_times = transit_time + np.linspace(-1, 1, nstep) * u.hr
 
-
     uvw_m = telescope.uvw_tracking_skycoord(
-            pointing_centre, obs_times,
-        )
+        pointing_centre, obs_times,
+    )
     # From here on we use UVW as multiples of wavelength, lambda:
     uvw_lambda = (uvw_m / wavelength).to(u.dimensionless_unscaled).value
     vis_noise_level = 0.001 * u.Jy
@@ -66,7 +90,6 @@ def sample_sim_radio_image():
         SkySource(pointing_centre, flux=1 * u.Jy),
         SkySource(extra_src_position, flux=0.4 * u.Jy),
     ]
-
 
     # Simulate incoming data; includes transient sources, noise:
     data_vis = visibility.visibilities_for_source_list(

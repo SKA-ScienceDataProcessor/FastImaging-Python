@@ -8,3 +8,4 @@ Jupyter Notebook Examples
     notebooks/anti_aliasing_properties
     notebooks/simulate_and_image
     notebooks/sourcefinding
+    notebooks/gaussian_parameterizations

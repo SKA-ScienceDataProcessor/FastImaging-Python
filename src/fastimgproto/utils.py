@@ -22,25 +22,51 @@ def reset_progress_bar(progress_bar, total, description="Doing something"):
 
     """
     progress_bar.n = 0
-    progress_bar.total=total
-    progress_bar.desc=description
+    progress_bar.total = total
+    progress_bar.desc = description
     return
 
 
-def values_close(c1, c2, tol=np.float_(1e-8)):
-    """
-    Check if two complex values are almost the same.
 
-    (See also: `pytest.approx` - but it's unclear if that works for complex
-    values.)
+def positive_negative_sign_validator(instance, attribute, value):
+    """
+    Attrs validator for verifying ``value in (-1,1)``.
+    """
+    if value not in (-1, 1):
+        raise ValueError("'sign' should be +1 or -1")
+
+
+def nonzero_bounding_slice_2d(input):
+    """
+    Get slices defining the bounding box for any nonzero / True-valued subarray.
+
+    ...of a 2-dimensional ndarray.
+
+    NB Not a Number (NaN), positive infinity and negative infinity evaluate to
+    True because these are not equal to zero (cf numpy.any).
+
+    cf stackoverflow answer:
+    https://stackoverflow.com/a/31402351/725650
+    - contains extension to n-dimensions, but then you have to consider
+    all (n-1)-choices from a set of n axes, so it's a fair bit trickier to
+    follow. Probably YAGNI.
 
     Args:
-        c1 (complex): Value 1
-        c2 (complex): Value 2
-        tol (float): Largest tolerated difference
+        input (numpy.ndarray): Input array
 
     Returns:
-        bool: True if  `|(c1-c2)| < tol`
+        tuple or None: A tuple of slices, `(y_range, x_range)` which can be
+        used to iterate over the bounding box of all non-zero values.
+        If there are no nonzero values, returns `None`.
     """
-    diff_amp = np.absolute(c1 - c2)
-    return diff_amp < tol
+    assert isinstance(input, np.ndarray)
+    assert input.ndim == 2
+    y_nz_idx = np.any(input, axis=1)
+    if not y_nz_idx.any():
+        return None
+    x_nz_idx = np.any(input, axis=0)
+    y_nz_min, y_nz_max = np.where(y_nz_idx)[0][[0, -1]]
+    x_nz_min, x_nz_max = np.where(x_nz_idx)[0][[0, -1]]
+    yslice = slice(y_nz_min, y_nz_max + 1)
+    xslice = slice(x_nz_min, x_nz_max + 1)
+    return (yslice, xslice)
