@@ -7,19 +7,19 @@ import pytest
 from numpy.testing import assert_allclose, assert_equal
 from pytest import approx
 
-from fastimgproto.sourcefind.fit import Gaussian2dFit
+from fastimgproto.sourcefind.fit import Gaussian2dParams
 
 
 def test_correlation_coefficient():
     smaj = 1.5
     smin = 1.
-    g1 = Gaussian2dFit(x_centre=0,
-                       y_centre=0,
-                       amplitude=1,
-                       semimajor=smaj,
-                       semiminor=smin,
-                       theta=0.,
-                       )
+    g1 = Gaussian2dParams(x_centre=0,
+                          y_centre=0,
+                          amplitude=1,
+                          semimajor=smaj,
+                          semiminor=smin,
+                          theta=0.,
+                          )
 
     assert g1.correlation == 0
 
@@ -33,13 +33,13 @@ def test_correlation_coefficient():
     assert_allclose(g1.covariance, cov_rotated, atol=1e-10)
 
     smaj = 1e5
-    g2 = Gaussian2dFit(x_centre=0,
-                       y_centre=0,
-                       amplitude=1,
-                       semimajor=smaj,
-                       semiminor=smin,
-                       theta=0.,
-                       )
+    g2 = Gaussian2dParams(x_centre=0,
+                          y_centre=0,
+                          amplitude=1,
+                          semimajor=smaj,
+                          semiminor=smin,
+                          theta=0.,
+                          )
     assert g2.correlation == 0
     g2 = attr.evolve(g2, theta=np.pi / 4)
     # print()
@@ -57,8 +57,8 @@ def test_approx_equality():
                      semiminor=1.4,
                      theta=1.1,
                      )
-    g1 = Gaussian2dFit(**init_pars)
-    g2 = Gaussian2dFit(**init_pars)
+    g1 = Gaussian2dParams(**init_pars)
+    g2 = Gaussian2dParams(**init_pars)
     assert g1 == g2
     g2 = attr.evolve(g2,
                      y_centre=g2.y_centre + 5e-9,
@@ -80,13 +80,13 @@ def test_validation_after_evolve_call():
     smaj = 1.5
     smin = 1.
 
-    g1 = Gaussian2dFit(x_centre=0,
-                       y_centre=0,
-                       amplitude=1,
-                       semimajor=smaj,
-                       semiminor=smin,
-                       theta=0.,
-                       )
+    g1 = Gaussian2dParams(x_centre=0,
+                          y_centre=0,
+                          amplitude=1,
+                          semimajor=smaj,
+                          semiminor=smin,
+                          theta=0.,
+                          )
     with pytest.raises(ValueError):
         g2 = attr.evolve(g1, semimajor=smin - 0.1)
 
@@ -98,31 +98,31 @@ def test_unconstrained_initialization_theta_oob():
                   semiminor=1.4,
                   theta=np.pi / 4,
                   )
-    g1 = Gaussian2dFit(**pars)
+    g1 = Gaussian2dParams(**pars)
 
     pars.update(theta=g1.theta + np.pi)
-    g2 = Gaussian2dFit.from_unconstrained_parameters(**pars)
+    g2 = Gaussian2dParams.from_unconstrained_parameters(**pars)
     assert g1 == g2
 
     pars.update(theta=g1.theta + 2*np.pi)
-    g3 = Gaussian2dFit.from_unconstrained_parameters(**pars)
+    g3 = Gaussian2dParams.from_unconstrained_parameters(**pars)
     assert g1 == g3
 
     pars.update(theta=g1.theta - np.pi)
-    g4 = Gaussian2dFit.from_unconstrained_parameters(**pars)
+    g4 = Gaussian2dParams.from_unconstrained_parameters(**pars)
     assert g1 == g4
 
     # Check initialization at bounds:
     # Include upper bound
     pars.update(theta=np.pi/2.)
-    g5 = Gaussian2dFit(**pars)
+    g5 = Gaussian2dParams(**pars)
 
     # Shouldn't work - exclude lower bound
     pars.update(theta=-np.pi/2.)
     with pytest.raises(ValueError):
-        g6 = Gaussian2dFit(**pars)
+        g6 = Gaussian2dParams(**pars)
     # Should flip lower bound to upper bound:
-    g6 = Gaussian2dFit.from_unconstrained_parameters(**pars)
+    g6 = Gaussian2dParams.from_unconstrained_parameters(**pars)
     assert g6.theta == np.pi / 2.
 
 
@@ -130,15 +130,15 @@ def test_unconstrained_initialization_theta_oob():
 def test_unconstrained_initialization_flipped_major_minor():
     smaj = 1.5
     smin = 1.3
-    g1 = Gaussian2dFit(x_centre=0,
-                       y_centre=0,
-                       amplitude=1,
-                       semimajor=smaj,
-                       semiminor=smin,
-                       theta=np.pi / 4.,
-                       )
+    g1 = Gaussian2dParams(x_centre=0,
+                          y_centre=0,
+                          amplitude=1,
+                          semimajor=smaj,
+                          semiminor=smin,
+                          theta=np.pi / 4.,
+                          )
 
-    g2 = Gaussian2dFit.from_unconstrained_parameters(
+    g2 = Gaussian2dParams.from_unconstrained_parameters(
         g1.x_centre, g1.y_centre, g1.amplitude,
         semimajor=g1.semiminor,
         semiminor=g1.semimajor,

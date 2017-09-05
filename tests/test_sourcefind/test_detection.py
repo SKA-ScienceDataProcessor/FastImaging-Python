@@ -1,7 +1,9 @@
 from __future__ import print_function
 
+import attr
 import numpy as np
 import scipy.ndimage
+from pytest import approx
 
 from fastimgproto.fixtures.image import (
     add_gaussian2d_to_image,
@@ -11,11 +13,11 @@ from fastimgproto.fixtures.image import (
 from fastimgproto.fixtures.sourcefits import (
     check_single_source_extraction_successful,
 )
-from fastimgproto.sourcefind.fit import Gaussian2dFit
+from fastimgproto.sourcefind.fit import Gaussian2dParams
 from fastimgproto.sourcefind.image import (
-    IslandParams,
     SourceFindImage,
-    _estimate_rms,
+    estimate_rms,
+    extremum_pixel_index,
 )
 
 ydim = 128
@@ -34,32 +36,43 @@ def test_rms_estimation():
                                                  sigma=rms)
     add_gaussian2d_to_image(bright_src, img)
     add_gaussian2d_to_image(faint_src, img)
-    rms_est = _estimate_rms(img)
+    rms_est = estimate_rms(img)
     # print "RMS EST:", rms_est
     assert np.abs((rms_est - rms) / rms) < 0.05
 
 
-def test_basic_source_detection_and_fitting():
+def test_basic_source_detection():
     """
     We use a flat background (rather than noisy) to avoid random-noise fluctuations
     causing erroneous detections (and test-failures).
+
+    Check the correct values are returned for a single source, then
+    start adding secondary sources and check we get multiple finds as
+    expected...
     """
     img = np.zeros((ydim, xdim))
     add_gaussian2d_to_image(bright_src, img)
-    # img += evaluate_model_on_pixel_grid(img.shape, faint_src)
 
     sf = SourceFindImage(img, detection_n_sigma=4,
                          analysis_n_sigma=3,
                          rms_est=rms,
                          find_negative_sources=False)
     assert len(sf.islands) == 1
-    found_src = sf.islands[0]
-    # print(bright_src)
-    # print(src)
-    assert np.abs(found_src.extremum_x_idx - bright_src.x_centre) < 0.5
-    assert np.abs(found_src.extremum_y_idx - bright_src.y_centre) < 0.5
-    assert np.abs(found_src.xbar - bright_src.x_centre) < 0.1
-    assert np.abs(found_src.ybar - bright_src.y_centre) < 0.1
+    found_src = sf.islands[0].params
+
+    # Check the max-pixel is correct:
+    assert found_src.extremum.value == np.max(img)
+    max_pixel_index = extremum_pixel_index(img, 1)
+    assert (max_pixel_index == attr.astuple(found_src.extremum.index))
+
+    # For a *compact* Gaussian profile this should also be close to the
+    # true subpixel position:
+    assert np.abs(found_src.extremum.index.x - bright_src.x_centre) < 0.5
+    assert np.abs(found_src.extremum.index.y - bright_src.y_centre) < 0.5
+
+    # And peak-pixel value within a reasonable range of the amplitude:
+    # - to within 10%, anyway
+    assert found_src.extremum.value == approx(bright_src.amplitude, rel=0.1)
 
     # We expect to detect the bright source, but not the faint one.
     add_gaussian2d_to_image(faint_src, img)
@@ -75,8 +88,6 @@ def test_basic_source_detection_and_fitting():
                          rms_est=rms,
                          find_negative_sources=False)
     assert len(sf.islands) == 2
-
-    # Now, do the fitting routines work?
 
 
 def test_negative_source_detection():
@@ -95,14 +106,12 @@ def test_negative_source_detection():
                          analysis_n_sigma=3,
                          rms_est=rms)
     assert len(sf.islands) == 1
-    found_src = sf.islands[0]
-    print()
-    print(negative_src)
-    print(found_src)
-    assert np.abs(found_src.extremum_x_idx - negative_src.x_centre) < 0.5
-    assert np.abs(found_src.extremum_y_idx - negative_src.y_centre) < 0.5
-    assert np.abs(found_src.xbar - negative_src.x_centre) < 0.1
-    assert np.abs(found_src.ybar - negative_src.y_centre) < 0.1
+    found_island = sf.islands[0]
+    # print()
+    # print(negative_src)
+    # print(found_island.params)
+    assert np.abs(found_island.extremum.index.x - negative_src.x_centre) < 0.5
+    assert np.abs(found_island.extremum.index.y - negative_src.y_centre) < 0.5
 
     add_gaussian2d_to_image(bright_src, img)
     sf = SourceFindImage(img, detection_n_sigma=4,
@@ -113,25 +122,28 @@ def test_negative_source_detection():
     negative_islands = [i for i in sf.islands if i.sign == -1]
     assert len(positive_islands) == 1
     assert len(negative_islands) == 1
-    assert negative_islands[0] == found_src
+    assert negative_islands[0] == found_island
 
     neg_island = negative_islands[0]
     pos_island = positive_islands[0]
-    assert isinstance(pos_island, IslandParams)
-    neg_src_idx = (neg_island.extremum_y_idx, neg_island.extremum_x_idx)
-    pos_src_idx = (pos_island.extremum_y_idx, pos_island.extremum_x_idx)
 
-    assert np.abs(pos_island.extremum_x_idx - bright_src.x_centre) < 0.5
-    assert np.abs(pos_island.xbar - bright_src.x_centre) < 0.1
-    assert np.abs(pos_island.extremum_y_idx - bright_src.y_centre) < 0.5
-    assert np.abs(pos_island.ybar - bright_src.y_centre) < 0.1
 
-    # Sanity check that the island masks are correct
-    assert not ((neg_island.data.mask == pos_island.data.mask).all())
-    assert neg_island.data.mask[neg_src_idx] == False
-    assert neg_island.data.mask[pos_src_idx] == True
-    assert pos_island.data.mask[pos_src_idx] == False
-    assert pos_island.data.mask[neg_src_idx] == True
+    min_pixel_index = extremum_pixel_index(img, -1)
+    assert attr.astuple(neg_island.extremum.index) == min_pixel_index
+
+    max_pixel_index = extremum_pixel_index(img, 1)
+    assert attr.astuple(pos_island.extremum.index) == max_pixel_index
+
+    # Sanity check that the island masks look sensible
+    # Check that the mask==False regions are disjoint - taking the boolean OR
+    # on both masks should result in a fully `True` mask-array.
+    assert (np.logical_or(neg_island.data.mask,pos_island.data.mask).all())
+
+    # And that the true/false regions look sensible for the extremum pixels:
+    assert neg_island.data.mask[min_pixel_index] == False
+    assert neg_island.data.mask[max_pixel_index] == True
+    assert pos_island.data.mask[min_pixel_index] == True
+    assert pos_island.data.mask[max_pixel_index] == False
 
 
 def test_memory_usage():
@@ -155,18 +167,18 @@ def test_memory_usage():
                          find_negative_sources=False)
     assert len(sf.islands) == 1
     island = sf.islands[0]
-    assert island.parent is sf
+    assert island.parent_data is sf.data
 
     # island.data is the masked array (image masked to just this island)
-    island_mask = island.data
+    island_view = island.data
     # Check if the underlying data is the same:
-    assert np.may_share_memory(sf.data, island_mask.data)
+    assert np.may_share_memory(sf.data, island_view.data)
 
-    assert (sf.data == island_mask.data).all()
+    assert (sf.data == island_view.data).all()
     # Check our initial conditions
     assert sf.data[0][0] != 42.
     # Alter the masked-array underlying data:
-    island_mask.data[0][0] = 42.
+    island_view.data[0][0] = 42.
     # Check if the original image data has been altered accordingly:
     assert sf.data[0][0] == 42.
 
@@ -197,12 +209,12 @@ def test_connectivity():
     the better option - sophisticated sourcefinders can always attempt to
     'deblend' connected regions, anyway.
     """
-    test_source = Gaussian2dFit(x_centre=18.68,
-                                y_centre=34.55,
-                                amplitude=6,
-                                semimajor=1.2,
-                                semiminor=0.5,
-                                theta=np.pi / 4.)
+    test_source = Gaussian2dParams(x_centre=18.68,
+                                   y_centre=34.55,
+                                   amplitude=6,
+                                   semimajor=1.2,
+                                   semiminor=0.5,
+                                   theta=np.pi / 4.)
     ydim = 64
     xdim = 32
     image_shape = (ydim, xdim)
@@ -250,19 +262,19 @@ def test_peak_pixel_offset():
     Illustrates that moments are definitely the way to go, even for basic
     property checking in the *absence* of noise!
     """
-    test_source = Gaussian2dFit(x_centre=18.472842883054525,
-                                y_centre=34.48307160810558,
-                                amplitude=12.428984813225547,
-                                semimajor=8.334020542093349,
-                                semiminor=1.7607968749558363,
-                                theta=-1.3864202588398769)
+    test_source = Gaussian2dParams(x_centre=18.472842883054525,
+                                   y_centre=34.48307160810558,
+                                   amplitude=12.428984813225547,
+                                   semimajor=8.334020542093349,
+                                   semiminor=1.7607968749558363,
+                                   theta=-1.3864202588398769)
     img = np.zeros((64, 32))
     add_gaussian2d_to_image(test_source, img)
     sf_img = SourceFindImage(img, detection_n_sigma=4., analysis_n_sigma=3.,
                              rms_est=1.)
     check_single_source_extraction_successful(test_source, sf_img)
     assert len(sf_img.islands) == 1
-    island = sf_img.islands[0]
+    island_pars = sf_img.islands[0].params
     # This may come as a bit of a surprise - it's not even in the directly
     # adjacent pixel
-    assert np.abs(island.extremum_y_idx - test_source.y_centre) > 1.5
+    assert np.abs(island_pars.extremum.index.y - test_source.y_centre) > 1.5

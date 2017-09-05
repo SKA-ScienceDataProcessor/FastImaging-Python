@@ -57,9 +57,9 @@ def _valid_theta(instance, attribute, value):
 
 
 @attrs(frozen=True)
-class Gaussian2dFit(object):
+class Gaussian2dParams(object):
     """
-    Data structure for representing Gaussian Fits.
+    Data structure for representing a 2d Gaussian profile.
 
     Similar to an astropy Gaussian2d parameter set, but we refer to
     semimajor/semiminor axis length rather than x_std_dev / y_std_dev.
@@ -140,7 +140,7 @@ class Gaussian2dFit(object):
             theta:
 
         Returns:
-            Gaussian2dFit
+            Gaussian2dParams
         """
         # Semimajor / minor are only evaluated as squares, so unconstrained
         # fits can easily stray into negative values:
@@ -157,8 +157,8 @@ class Gaussian2dFit(object):
             mod_theta += np.pi
         elif mod_theta > half_pi:
             mod_theta -= np.pi
-        return Gaussian2dFit(x_centre, y_centre, amplitude, semimajor,
-                             semiminor, mod_theta)
+        return Gaussian2dParams(x_centre, y_centre, amplitude, semimajor,
+                                semiminor, mod_theta)
 
     @property
     def comparable_params(self):

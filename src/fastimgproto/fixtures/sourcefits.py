@@ -12,7 +12,7 @@ from fastimgproto.fixtures.image import (
     gaussian_point_source,
 )
 from fastimgproto.sourcefind.fit import (
-    Gaussian2dFit,
+    Gaussian2dParams,
     gaussian2d,
     gaussian2d_jac,
 )
@@ -39,7 +39,7 @@ def generate_random_source_params(n_sources,
         seed:
 
     Returns:
-        list[Gaussian2dFit]: List of pseudo-randomly generated sources.
+        list[Gaussian2dParams]: List of pseudo-randomly generated sources.
     """
     if axis_ratio_range[0] < 1.:
         raise ValueError("Axis ratios must be 1. at minimum "
@@ -68,7 +68,7 @@ def generate_random_source_params(n_sources,
 
     # Did I get the numpy syntax right?
     assert param_stack.shape == (n_sources, 6)
-    return [Gaussian2dFit(*tuple(param_row)) for param_row in param_stack]
+    return [Gaussian2dParams(*tuple(param_row)) for param_row in param_stack]
 
 
 def check_single_source_extraction_successful(source_params, sf_image):
@@ -81,7 +81,7 @@ def check_single_source_extraction_successful(source_params, sf_image):
     the image).
 
     Args:
-        source_params (Gaussian2dFit):
+        source_params (Gaussian2dParams):
         sf_image (SourceFindImage):
 
     Returns:

@@ -7,7 +7,7 @@ from astropy.time import Time
 
 import fastimgproto.visibility as visibility
 from fastimgproto.skymodel.helpers import SkySource
-from fastimgproto.sourcefind.fit import Gaussian2dFit
+from fastimgproto.sourcefind.fit import Gaussian2dParams
 from fastimgproto.telescope.readymade import Meerkat
 
 
@@ -35,15 +35,15 @@ def gaussian_point_source(x_centre,
         theta:
 
     Returns:
-        Gaussian2dFit
+        Gaussian2dParams
     """
-    return Gaussian2dFit(amplitude=amplitude,
-                         x_centre=x_centre,
-                         y_centre=y_centre,
-                         semimajor=semimajor,
-                         semiminor=semiminor,
-                         theta=theta
-                         )
+    return Gaussian2dParams(amplitude=amplitude,
+                            x_centre=x_centre,
+                            y_centre=y_centre,
+                            semimajor=semimajor,
+                            semiminor=semiminor,
+                            theta=theta
+                            )
 
 
 def add_gaussian2d_to_image(gauss2d_fit, image):
