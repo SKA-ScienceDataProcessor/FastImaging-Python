@@ -275,5 +275,8 @@ def gaussian2d_jac(x, y, x_centre, y_centre, amplitude, x_stddev, y_stddev, thet
     dg_dtheta = g * (-(da_dtheta * xdiff2 +
                        db_dtheta * xdiff * ydiff +
                        dc_dtheta * ydiff2))
-    return [dg_dA, dg_dx_mean, dg_dy_mean, dg_dx_stddev, dg_dy_stddev,
+
+    return [dg_dx_mean, dg_dy_mean,
+            dg_dA,
+            dg_dx_stddev, dg_dy_stddev,
             dg_dtheta]
