@@ -88,13 +88,13 @@ def test_gauss2d_func_and_jacobian():
                 x0=pars,
                 epsilon=eps,
             )
-            logger.debug("Analytic {}".format(analytic))
-            logger.debug("Numerical {}".format(numerical))
-
-            logger.debug("Diffs: manual {}, check grad {}".format(
-                np.abs(analytic - numerical),
-                check_grad_result))
-            logger.debug("")
+            # logger.debug("Analytic {}".format(analytic))
+            # logger.debug("Numerical {}".format(numerical))
+            #
+            # logger.debug("Diffs: manual {}, check grad {}".format(
+            #     np.abs(analytic - numerical),
+            #     check_grad_result))
+            # logger.debug("")
 
             np.testing.assert_allclose(analytic,numerical,
                                        atol=1e-7)
