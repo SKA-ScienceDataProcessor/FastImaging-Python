@@ -55,7 +55,6 @@ def _valid_theta(instance, attribute, value):
         raise ValueError("Theta should lie in the range (-pi/2,pi/2].")
 
 
-
 @attrs(frozen=True)
 class Gaussian2dParams(object):
     """
@@ -146,11 +145,11 @@ class Gaussian2dParams(object):
         # fits can easily stray into negative values:
         semimajor = np.fabs(semimajor)
         semiminor = np.fabs(semiminor)
-        half_pi = np.pi/2.
+        half_pi = np.pi / 2.
         if semimajor < semiminor:
             semimajor, semiminor = semiminor, semimajor
             theta = theta + half_pi
-        mod_theta = math.fmod(theta, np.pi) # Rotations by pi are degeneracies
+        mod_theta = math.fmod(theta, np.pi)  # Rotations by pi are degeneracies
         # This gets us to the range (-pi,pi). Now we add/subtract an additional
         # pi as required to get down to (-pi/2, pi/2).
         if mod_theta <= -half_pi:
@@ -225,7 +224,8 @@ def gaussian2d(x, y, x_centre, y_centre, amplitude, x_stddev, y_stddev, theta):
                                 (c * ydiff ** 2)))
 
 
-def gaussian2d_jac(x, y, x_centre, y_centre, amplitude, x_stddev, y_stddev, theta):
+def gaussian2d_jac(x, y, x_centre, y_centre, amplitude, x_stddev, y_stddev,
+                   theta):
     """
     Jacobian of Gaussian2d.
 
@@ -276,7 +276,9 @@ def gaussian2d_jac(x, y, x_centre, y_centre, amplitude, x_stddev, y_stddev, thet
                        db_dtheta * xdiff * ydiff +
                        dc_dtheta * ydiff2))
 
-    return [dg_dx_mean, dg_dy_mean,
-            dg_dA,
-            dg_dx_stddev, dg_dy_stddev,
-            dg_dtheta]
+    return np.array([dg_dx_mean,
+                     dg_dy_mean,
+                     dg_dA,
+                     dg_dx_stddev,
+                     dg_dy_stddev,
+                     dg_dtheta]).T

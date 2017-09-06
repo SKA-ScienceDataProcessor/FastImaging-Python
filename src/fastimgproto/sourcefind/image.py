@@ -8,7 +8,11 @@ from attr import attrib, attrs
 from scipy import ndimage
 from scipy.optimize import least_squares
 
-from fastimgproto.sourcefind.fit import Gaussian2dParams, gaussian2d
+from fastimgproto.sourcefind.fit import (
+    Gaussian2dParams,
+    gaussian2d,
+    gaussian2d_jac,
+)
 from fastimgproto.utils import (
     nonzero_bounding_slice_2d,
     positive_negative_sign_validator,
@@ -300,8 +304,8 @@ class SourceFindImage(object):
 
     def fit_gaussian_2d(self, island, verbose=0):
         # x, y, x_centre, y_centre, amplitude, x_stddev, y_stddev, theta
-        ygrid, xgrid = island.unmasked_pixel_indices
-        fitting_data = island.data[ygrid, xgrid]
+        y_indices, x_indices = island.unmasked_pixel_indices
+        fitting_data = island.data[y_indices, x_indices]
 
         def island_residuals(x_centre,
                              y_centre,
@@ -310,7 +314,7 @@ class SourceFindImage(object):
                              semiminor,
                              theta):
             """
-            A wrapped version of gaussian_2d applied to this island's unmasked
+            A wrapped version of `gaussian2d` applied to this island's unmasked
             pixels, then subtracting the island values
 
             Same args as :ref:`.gaussian2d`, except without the `xgrid,ygrid`
@@ -321,7 +325,7 @@ class SourceFindImage(object):
 
             """
 
-            model_vals = gaussian2d(xgrid, ygrid,
+            model_vals = gaussian2d(x_indices, y_indices,
                                     x_centre=x_centre,
                                     y_centre=y_centre,
                                     amplitude=amplitude,
@@ -331,6 +335,25 @@ class SourceFindImage(object):
                                     )
             assert model_vals.shape == fitting_data.shape
             return fitting_data - model_vals
+
+        def located_jacobian(pars):
+            """
+            Wrapped version of `gaussian2d_jac` applied at these pixel positions.
+            """
+            (x_centre,
+             y_centre,
+             amplitude,
+             semimajor,
+             semiminor,
+             theta) = pars
+            return gaussian2d_jac(x_indices, y_indices,
+                                  x_centre=x_centre,
+                                  y_centre=y_centre,
+                                  amplitude=amplitude,
+                                  x_stddev=semimajor,
+                                  y_stddev=semiminor,
+                                  theta=theta,
+                                  )
 
         def wrapped_island_residuals(pars):
             """
@@ -356,9 +379,12 @@ class SourceFindImage(object):
                                           semiminor=1.,
                                           theta=0
                                           )
+
+        # Using the jacobian mostly gives bad fits?
         lsq_result = least_squares(fun=wrapped_island_residuals,
+                                   # jac=located_jacobian,
                                    x0=attr.astuple(initial_params),
-                                   # method='lm',
+                                   # method='dogbox',
                                    verbose=verbose,
                                    )
         island.params.leastsq_fit = Gaussian2dParams.from_unconstrained_parameters(

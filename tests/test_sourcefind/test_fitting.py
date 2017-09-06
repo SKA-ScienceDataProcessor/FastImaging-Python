@@ -41,14 +41,38 @@ def test_gauss2d_func_and_jacobian():
 
     pars = attr.astuple(profile)
     n_tests_run = 0
-    for x in rstate.uniform(profile.x_centre - profile.semimajor * 5.,
-                            profile.x_centre + profile.semimajor * 5.,
-                            size=n_samples
-                            ):
-        for y in rstate.uniform(profile.y_centre - profile.semimajor * 5.,
-                                profile.y_centre + profile.semimajor * 5.,
-                                size=n_samples
-                                ):
+
+    x_samples = rstate.uniform(profile.x_centre - profile.semimajor * 5.,
+                               profile.x_centre + profile.semimajor * 5.,
+                               size=n_samples
+                               )
+    y_samples = rstate.uniform(profile.y_centre - profile.semimajor * 5.,
+                               profile.y_centre + profile.semimajor * 5.,
+                               size=n_samples
+                               )
+
+    xy_pairs = np.column_stack((x_samples, y_samples))
+
+    looped_g2d = np.array(
+        [gaussian2d(*tuple(pair), *attr.astuple(profile))
+         for pair in xy_pairs])
+    vectored_g2d = gaussian2d(x_samples, y_samples, *attr.astuple(profile))
+    assert (looped_g2d == vectored_g2d).all()
+
+    looped_jac = np.array(
+        [gaussian2d_jac(*tuple(pair), *attr.astuple(profile))
+         for pair in xy_pairs])
+    vectored_jac = gaussian2d_jac(x_samples, y_samples, *attr.astuple(profile))
+
+    print(looped_jac.shape)
+    print(vectored_jac.shape)
+    assert (looped_jac.shape == vectored_jac.shape)
+    assert (looped_jac == vectored_jac).all()
+
+    # assert
+
+    for x in x_samples:
+        for y in y_samples:
             # Need to partially bind the functions for each x/y location
             def located_g2d(x_centre, y_centre, amplitude, x_stddev, y_stddev,
                             theta):
@@ -76,7 +100,7 @@ def test_gauss2d_func_and_jacobian():
                 n_tests_run, n_samples ** 2))
             logger.debug("Checking gradient at x/y position {} {}".format(x, y))
 
-            eps = np.sqrt(np.finfo(float).eps) # default for check_grad
+            eps = np.sqrt(np.finfo(float).eps)  # default for check_grad
             # eps = 1e-12
 
             numerical = scipy.optimize.approx_fprime(pars, wrapped_gaussian2d,
@@ -96,7 +120,7 @@ def test_gauss2d_func_and_jacobian():
             #     check_grad_result))
             # logger.debug("")
 
-            np.testing.assert_allclose(analytic,numerical,
+            np.testing.assert_allclose(analytic, numerical,
                                        atol=1e-7)
             assert check_grad_result == approx(0., abs=2e-6)
 
