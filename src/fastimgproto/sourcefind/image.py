@@ -6,7 +6,7 @@ import attr.validators
 import numpy as np
 from attr import attrib, attrs
 from scipy import ndimage
-from scipy.optimize import least_squares
+from scipy.optimize import OptimizeResult, least_squares
 
 from fastimgproto.sourcefind.fit import (
     Gaussian2dParams,
@@ -102,10 +102,23 @@ class IslandParams(object):
     extremum = attrib(validator=attr.validators.instance_of(Pixel))
 
     # Optional
+    moments_fit = attrib(
+        default=None,
+        validator=attr.validators.optional(
+            attr.validators.instance_of((Gaussian2dParams, bool))))
+
     leastsq_fit = attrib(
         default=None,
         validator=attr.validators.optional(
             attr.validators.instance_of((Gaussian2dParams, bool))))
+
+    # Useful for debugging - store the full report on the least-squares fit.
+    # Don't show it in the standard repr, though - too verbose!
+    optimize_result = attrib(
+        default=None, repr=False, cmp=False,
+        validator=attr.validators.optional(
+            attr.validators.instance_of(OptimizeResult)
+        ))
 
 
 @attrs
@@ -296,23 +309,75 @@ class SourceFindImage(object):
     def calculate_moments(self, island):
         """
         Analyses an island to extract further parameters.
+
+        See Hanno Spreeuw's thesis for formulae (eqn 2.50 -- 2.54).
+        (Will add a derivation notebook to repo if time allows).
         """
         sign = island.sign
-        sum = sign * np.ma.sum(island.data)
-        island.xbar = np.ma.sum(self.xgrid * sign * island.data) / sum
-        island.ybar = np.ma.sum(self.ygrid * sign * island.data) / sum
+        # If working with a negative source, be sure to take a positive copy
+        # (modulus) of the island data to get the moment calculations correct.
+        abs_data = sign * island.data
+        sum = abs_data.sum()
+        y = self.ygrid
+        x = self.xgrid
+        x_bar = (x * abs_data).sum() / sum
+        y_bar = (y * abs_data).sum() / sum
+        xx_bar = (x * x * abs_data).sum() / sum - x_bar * x_bar
+        yy_bar = (y * y * abs_data).sum() / sum - y_bar * y_bar
+        xy_bar = (x * y * abs_data).sum() / sum - x_bar * y_bar
+
+        working1 = (xx_bar + yy_bar) / 2.0
+        working2 = math.sqrt(((xx_bar - yy_bar) / 2) ** 2 + xy_bar ** 2)
+        trunc_semimajor_sq = working1 + working2
+        trunc_semiminor_sq = working1 - working2
+
+        # Semimajor / minor axes are under-estimated due to threholding
+        # Hanno calculated the following correction factor (eqns 2.60,2.61):
+
+        pixel_threshold = self.analysis_n_sigma * self.rms_est
+        # `cutoff_ratio` ==  'C/T' in Hanno's formulae.
+        # Always >1.0, else the source would not be detected.
+        cutoff_ratio = sign * island.extremum.value / pixel_threshold
+        axes_scale_factor = 1.0 - math.log(cutoff_ratio) / (cutoff_ratio - 1.)
+        semimajor_est = math.sqrt(trunc_semimajor_sq / axes_scale_factor)
+        semiminor_est = math.sqrt(trunc_semiminor_sq / axes_scale_factor)
+
+        # For theta, we differ from Hanno's algorithm - I think Hanno maybe made
+        #  an error,or possibly this is due to different parameter
+        # bound-choices, not sure...
+        theta_est = 0.5 * math.atan(2. * xy_bar / (xx_bar - yy_bar))
+
+        # Atan(theta) solutions are periodic - can add or subtract pi.
+        # math.atan(theta) returns an angle in the range (-pi/2,pi/2) (matching the
+        # sign of theta).
+        # No problem since we're robust to rotations of pi / 180 degrees.
+        # But atan(2theta) solutions are periodic in pi/2. This is an issue,
+        # since we could have the wrong solution. To do so, we can just check
+        # if we're in the correct quadrant - if it's the wrong solution,
+        # it will be flipped by pi/2, then constrained to the (-pi/2,pi/2)
+        # by an additional rotation of pi. So if needed we add *another* pi/2,
+        # and let the Gaussian2dParams constructor take care of correcting bounds.
+        # We expect the sign of theta to match the sign of the covariance:
+        if theta_est * xy_bar < 0.:
+            theta_est += math.pi / 2.0
+
+        moments_fits = Gaussian2dParams.from_unconstrained_parameters(
+            x_centre=x_bar,
+            y_centre=y_bar,
+            amplitude=island.extremum.value,
+            semimajor=semimajor_est,
+            semiminor=semiminor_est,
+            theta=theta_est
+        )
+        island.params.moments_fit = moments_fits
+        return moments_fits
 
     def fit_gaussian_2d(self, island, verbose=0):
         # x, y, x_centre, y_centre, amplitude, x_stddev, y_stddev, theta
         y_indices, x_indices = island.unmasked_pixel_indices
         fitting_data = island.data[y_indices, x_indices]
 
-        def island_residuals(x_centre,
-                             y_centre,
-                             amplitude,
-                             semimajor,
-                             semiminor,
-                             theta):
+        def island_residuals(pars):
             """
             A wrapped version of `gaussian2d` applied to this island's unmasked
             pixels, then subtracting the island values
@@ -325,6 +390,13 @@ class SourceFindImage(object):
 
             """
 
+            (x_centre,
+             y_centre,
+             amplitude,
+             semimajor,
+             semiminor,
+             theta) = pars
+
             model_vals = gaussian2d(x_indices, y_indices,
                                     x_centre=x_centre,
                                     y_centre=y_centre,
@@ -336,57 +408,37 @@ class SourceFindImage(object):
             assert model_vals.shape == fitting_data.shape
             return fitting_data - model_vals
 
-        def located_jacobian(pars):
-            """
-            Wrapped version of `gaussian2d_jac` applied at these pixel positions.
-            """
-            (x_centre,
-             y_centre,
-             amplitude,
-             semimajor,
-             semiminor,
-             theta) = pars
-            return gaussian2d_jac(x_indices, y_indices,
-                                  x_centre=x_centre,
-                                  y_centre=y_centre,
-                                  amplitude=amplitude,
-                                  x_stddev=semimajor,
-                                  y_stddev=semiminor,
-                                  theta=theta,
-                                  )
+        # def located_jacobian(pars):
+        #     """
+        #     Wrapped version of `gaussian2d_jac` applied at these pixel positions.
+        #     """
+        #     (x_centre,
+        #      y_centre,
+        #      amplitude,
+        #      semimajor,
+        #      semiminor,
+        #      theta) = pars
+        #     return gaussian2d_jac(x_indices, y_indices,
+        #                           x_centre=x_centre,
+        #                           y_centre=y_centre,
+        #                           amplitude=amplitude,
+        #                           x_stddev=semimajor,
+        #                           y_stddev=semiminor,
+        #                           theta=theta,
+        #                           )
 
-        def wrapped_island_residuals(pars):
-            """
-            Wrapped version of `island_residuals` that takes a single argument
 
-            (a tuple of the varying parameters).
-
-            Args:
-                pars (tuple):
-                    (x_centre, y_centre, amplitude, x_stddev, y_stddev, theta)
-
-            Returns:
-                numpy.ndarray: vector of residuals
-
-            """
-            assert len(pars) == 6
-            return island_residuals(*pars)
-
-        initial_params = Gaussian2dParams(x_centre=island.xbar,
-                                          y_centre=island.ybar,
-                                          amplitude=island.extremum.value,
-                                          semimajor=1.,
-                                          semiminor=1.,
-                                          theta=0
-                                          )
+        initial_params = island.params.moments_fit
 
         # Using the jacobian mostly gives bad fits?
-        lsq_result = least_squares(fun=wrapped_island_residuals,
+        lsq_result = least_squares(fun=island_residuals,
                                    # jac=located_jacobian,
                                    x0=attr.astuple(initial_params),
-                                   # method='dogbox',
+                                   method='dogbox',
                                    verbose=verbose,
+                                   # max_nfev=50,
                                    )
+        island.params.optimize_result = lsq_result
         island.params.leastsq_fit = Gaussian2dParams.from_unconstrained_parameters(
             *tuple(lsq_result.x))
         return island.params.leastsq_fit
