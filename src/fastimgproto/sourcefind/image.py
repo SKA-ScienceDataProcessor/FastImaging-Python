@@ -8,15 +8,8 @@ from attr import attrib, attrs
 from scipy import ndimage
 from scipy.optimize import OptimizeResult, least_squares
 
-from fastimgproto.sourcefind.fit import (
-    Gaussian2dParams,
-    gaussian2d,
-    gaussian2d_jac,
-)
-from fastimgproto.utils import (
-    nonzero_bounding_slice_2d,
-    positive_negative_sign_validator,
-)
+from fastimgproto.sourcefind.fit import Gaussian2dParams, gaussian2d
+from fastimgproto.utils import nonzero_bounding_slice_2d
 
 _STRUCTURE_ELEMENT = np.array([[1, 1, 1],
                                [1, 1, 1],
@@ -98,7 +91,12 @@ class IslandParams(object):
     """
 
     # Required for initialization
-    sign = attrib(validator=positive_negative_sign_validator)
+    sign = attrib()
+    @sign.validator
+    def check_sign(instance, attribute, value):
+        if value not in (-1, 1):
+            raise ValueError("'sign' should be +1 or -1")
+
     extremum = attrib(validator=attr.validators.instance_of(Pixel))
 
     # Optional
@@ -141,6 +139,11 @@ class Island(object):
                          validator=attr.validators.instance_of(np.ndarray))
     mask = attrib(cmp=False,
                   validator=attr.validators.instance_of(np.ndarray))
+    @mask.validator
+    def check_mask_shape(instance, attribute, value):
+        if not value.shape == instance.parent_data.shape:
+            raise ValueError("Mask-shape does not match parent-shape")
+
     params = attrib(validator=attr.validators.instance_of(IslandParams))
 
     # xbar = attrib(default=None)
@@ -158,7 +161,7 @@ class Island(object):
         Return a MaskedArray view of the parent-array.
         """
         return np.ma.MaskedArray(
-            self.parent_data.data,
+            self.parent_data,
             mask=self.mask,
         )
 

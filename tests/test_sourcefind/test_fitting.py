@@ -54,13 +54,13 @@ def test_gauss2d_func_and_jacobian():
     xy_pairs = np.column_stack((x_samples, y_samples))
 
     looped_g2d = np.array(
-        [gaussian2d(*tuple(pair), *attr.astuple(profile))
+        [gaussian2d(*tuple(list(pair) + list(attr.astuple(profile))))
          for pair in xy_pairs])
     vectored_g2d = gaussian2d(x_samples, y_samples, *attr.astuple(profile))
     assert (looped_g2d == vectored_g2d).all()
 
     looped_jac = np.array(
-        [gaussian2d_jac(*tuple(pair), *attr.astuple(profile))
+        [gaussian2d_jac(*tuple(list(pair) + list(attr.astuple(profile))))
          for pair in xy_pairs])
     vectored_jac = gaussian2d_jac(x_samples, y_samples, *attr.astuple(profile))
 

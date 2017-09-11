@@ -27,15 +27,6 @@ def reset_progress_bar(progress_bar, total, description="Doing something"):
     return
 
 
-
-def positive_negative_sign_validator(instance, attribute, value):
-    """
-    Attrs validator for verifying ``value in (-1,1)``.
-    """
-    if value not in (-1, 1):
-        raise ValueError("'sign' should be +1 or -1")
-
-
 def nonzero_bounding_slice_2d(input):
     """
     Get slices defining the bounding box for any nonzero / True-valued subarray.

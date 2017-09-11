@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import attr
 import numpy as np
+import pytest
 import scipy.ndimage
 from pytest import approx
 
@@ -15,6 +16,10 @@ from fastimgproto.fixtures.sourcefits import (
 )
 from fastimgproto.sourcefind.fit import Gaussian2dParams
 from fastimgproto.sourcefind.image import (
+    Island,
+    IslandParams,
+    Pixel,
+    PixelIndex,
     SourceFindImage,
     estimate_rms,
     extremum_pixel_index,
@@ -41,6 +46,26 @@ def test_rms_estimation():
     assert np.abs((rms_est - rms) / rms) < 0.05
 
 
+def test_island_constructor_validation():
+    img = np.zeros((ydim, xdim), dtype=np.float_)
+    bright_pixel  = Pixel(index=PixelIndex(y=int(ydim / 2), x=int(xdim / 2)),
+                       value = 1.0)
+    island_params = IslandParams(sign=1,
+                                 extremum = bright_pixel)
+
+    bad_mask = np.ones((2,2), dtype=bool)
+    with pytest.raises(ValueError):
+        island = Island(parent_data = img,
+                        mask=bad_mask,
+                        params = island_params)
+
+    mask = np.ones_like(img, dtype=bool)
+    mask[attr.astuple(bright_pixel.index)] = False
+    island = Island(parent_data = img,
+                        mask=mask,
+                        params = island_params)
+
+
 def test_basic_source_detection():
     """
     We use a flat background (rather than noisy) to avoid random-noise fluctuations
@@ -50,7 +75,7 @@ def test_basic_source_detection():
     start adding secondary sources and check we get multiple finds as
     expected...
     """
-    img = np.zeros((ydim, xdim))
+    img = np.zeros((ydim, xdim), dtype=np.float_)
     add_gaussian2d_to_image(bright_src, img)
 
     sf = SourceFindImage(img, detection_n_sigma=4,
@@ -127,7 +152,6 @@ def test_negative_source_detection():
     neg_island = negative_islands[0]
     pos_island = positive_islands[0]
 
-
     min_pixel_index = extremum_pixel_index(img, -1)
     assert attr.astuple(neg_island.extremum.index) == min_pixel_index
 
@@ -137,7 +161,7 @@ def test_negative_source_detection():
     # Sanity check that the island masks look sensible
     # Check that the mask==False regions are disjoint - taking the boolean OR
     # on both masks should result in a fully `True` mask-array.
-    assert (np.logical_or(neg_island.data.mask,pos_island.data.mask).all())
+    assert (np.logical_or(neg_island.data.mask, pos_island.data.mask).all())
 
     # And that the true/false regions look sensible for the extremum pixels:
     assert neg_island.data.mask[min_pixel_index] == False
