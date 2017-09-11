@@ -84,4 +84,4 @@ class Kernel(object):
         # Now multiply separable components to get the 2-d kernel:
         self.array = x_kernel_coeffs * y_kernel_coeffs
         if normalize:
-            self.array/=self.array.sum()
+            self.array /= self.array.sum()

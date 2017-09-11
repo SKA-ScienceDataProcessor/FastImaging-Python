@@ -39,9 +39,9 @@ def time_of_next_transit(observer_longitude, target_ra, start_time,
 
     # Time to transit, in units of seconds:
     # (Recall,  ``LHA=-6h`` -> target is about to rise.
-    time_to_transit = -1.*u.sday* (target_lha / (24. * u.hourangle))
+    time_to_transit = -1. * u.sday * (target_lha / (24. * u.hourangle))
     if time_to_transit < 0:
-        time_to_transit = time_to_transit + 1.*u.sday
+        time_to_transit = time_to_transit + 1. * u.sday
     return start_time + time_to_transit
 
 
@@ -126,3 +126,24 @@ def z_rotation_matrix(rotation_angle):
          [0, 0, 1], ],
         dtype=np.float_)
     return rotation
+
+
+def rotate_basis(input, rotation_angle):
+    """
+    Rotate the basis-vectors of a matrix by rotation_angle.
+
+    Args:
+        input (numpy.ndarray): 2-D Matrix to rotate
+        rotation_angle (astropy.units.Quantity): Rotation-angle.
+
+    Returns:
+        numpy.ndarray: Matrix after change-of-basis
+    """
+    ar = rotation_angle.to(u.rad).value  # Angle in radians
+    c = np.cos(ar)
+    s = np.sin(ar)
+    rotation = np.array([[c, s],
+                         [-s, c]])
+    inv_rotation = np.array([[c, -s],
+                             [s, c]])
+    return np.dot(rotation, np.dot(input, inv_rotation))

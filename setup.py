@@ -6,7 +6,7 @@ import versioneer
 
 install_requires = [
     'astropy',
-    'attrs>=16.3.0',
+    'attrs>=17.2.0',
     'click',
     'drive-casa>=0.7.6',
     'pandas',
