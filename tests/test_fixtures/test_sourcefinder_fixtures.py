@@ -1,5 +1,7 @@
 from pytest import approx
+
 from fastimgproto.fixtures.sourcefits import generate_sourcegrid_base_positions
+
 
 def test_sourcegrid_base_positions():
     image_size = 100
@@ -15,4 +17,3 @@ def test_sourcegrid_base_positions():
     _, grid_49 = generate_sourcegrid_base_positions(image_size, n_sources=49)
     _, grid_37 = generate_sourcegrid_base_positions(image_size, n_sources=37)
     assert (grid_37 == grid_49).all()
-

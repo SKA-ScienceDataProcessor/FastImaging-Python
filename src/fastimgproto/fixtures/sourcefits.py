@@ -1,10 +1,10 @@
-from __future__ import print_function
+from __future__ import division, print_function
 
 import inspect
 import logging
+import math
 
 import attr
-import math
 import numpy as np
 from pytest import approx
 
