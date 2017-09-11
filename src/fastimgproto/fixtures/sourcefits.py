@@ -4,6 +4,7 @@ import inspect
 import logging
 
 import attr
+import math
 import numpy as np
 from pytest import approx
 
@@ -29,14 +30,25 @@ def generate_random_source_params(n_sources,
                                   axis_ratio_range,
                                   seed=None):
     """
-    Set up random, reasonably valued parameters for n_sources
+    Set up random, reasonably valued parameters for n_sources.
+
+    See Args for details of random-generation for amplitude, axes-lengths.
+    Rotation-angle is uniform-randomly allocated in the range `(-pi/2,pi/2]`.
 
     Args:
-        n_sources:
-        base_x:
-        base_y:
-        amplitude_range:
-        seed:
+        n_sources (int): Number of sources to generate
+        base_x (int): Pixel position. A random subpixel offset in range (0,1.)
+            will be added.
+        base_y (int): Pixel position. A random subpixel offset in range (0,1.)
+            will be added.
+        amplitude_range (tuple): `(min, max)`. Amplitudes will be uniformly
+            allocated in this range.
+        semiminor_range (tuple): `(min, max)`. Minor axis (sigma_{minor}) length
+            in pixels. Values will be uniformly allocated in this range.
+        axis_ratio_range (tuple): '(min, max)'. For each source, major-axis
+            length is assigned as `semimajor = semiminor * axis_ratio_range`.
+            Ratio values will be uniformly allocated in this range.
+        seed (int): RandomState seed.
 
     Returns:
         list[Gaussian2dParams]: List of pseudo-randomly generated sources.
@@ -69,6 +81,67 @@ def generate_random_source_params(n_sources,
     # Did I get the numpy syntax right?
     assert param_stack.shape == (n_sources, 6)
     return [Gaussian2dParams(*tuple(param_row)) for param_row in param_stack]
+
+
+def generate_sourcegrid_base_positions(image_size,
+                                       n_sources):
+    sources_per_row = int(math.ceil(math.sqrt(n_sources)))
+    source_spacing = image_size / sources_per_row
+    base_positions = np.mgrid[
+                     0: (sources_per_row) * source_spacing:source_spacing,
+                     0: (sources_per_row) * source_spacing:source_spacing,
+                     ]
+    base_positions= np.array(base_positions, dtype=np.float_)
+    base_positions += source_spacing / 2.
+    return source_spacing, base_positions
+
+
+
+def generate_grid_of_random_sources(image_size,
+                                    n_sources,
+                                    amplitude_range,
+                                    semiminor_range,
+                                    axis_ratio_range,
+                                    seed=None):
+    """
+    Generate a list of sources that are approximately located on a square grid.
+
+    Assumes a square image / grid. Sources will be placed on a regularly spaced
+    grid, but with random sub-pixel offsets applied.
+
+    Raises a ValueError if the generated sources could be at a spacing less
+    than `10*sigma`, where `sigma=max_semiminor*max_axis_ratio_range`.
+
+    Other source parameters (amplitude, axes-size / rotation) are randomly
+    generated according to the bounds given, as in
+    `generate_random_source_params`.
+
+    Args:
+        image_size (int): Size of image in pixels
+        n_sources (int): Number of sources to generate
+        amplitude_range (tuple): See `generate_random_source_params` for details.
+        semiminor_range (tuple): See `generate_random_source_params` for details
+        axis_ratio_range (tuple): See `generate_random_source_params` for details
+        seed (int): See `generate_random_source_params` for details.
+
+    Returns:
+        list[Gaussian2dParams]: List of pseudo-randomly generated sources.
+    """
+    zero_positioned_sources = generate_random_source_params(
+        n_sources=n_sources,
+        base_x=0, base_y=0,
+        amplitude_range=amplitude_range,
+        semiminor_range=semiminor_range,
+        axis_ratio_range=axis_ratio_range,
+        seed=seed
+    )
+
+    source_spacing, basegrid = generate_sourcegrid_base_positions(
+        image_size, n_sources)
+    min_sensible_spacing = 10. * max(semiminor_range) * max(axis_ratio_range)
+    if source_spacing < min_sensible_spacing:
+        raise ValueError("Sources would be spaced too closely to be reliably"
+                         "non-blended.")
 
 
 def check_single_source_extraction_successful(source_params, sf_image):
