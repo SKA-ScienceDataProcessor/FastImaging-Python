@@ -21,7 +21,7 @@ def gaussian_point_source(x_centre,
                           amplitude=1.0,
                           semimajor=1.5,
                           semiminor=1.2,
-                          theta=1, #rad
+                          theta=1,  # rad
                           ):
     """
     Wrapper around Gaussian2dFit providing some default values
@@ -46,21 +46,41 @@ def gaussian_point_source(x_centre,
                             )
 
 
-def add_gaussian2d_to_image(gauss2d_fit, image):
-    model = AstropyGauss2d(amplitude=gauss2d_fit.amplitude,
-                           x_mean=gauss2d_fit.x_centre,
-                           y_mean=gauss2d_fit.y_centre,
-                           x_stddev=gauss2d_fit.semimajor,
-                           y_stddev=gauss2d_fit.semiminor,
-                           theta=gauss2d_fit.theta
+def add_gaussian2d_to_image(gauss2d_pars, image):
+    """
+    Evaluate the Gaussian2dParams and add to the image-pixel values.
+    Args:
+        gauss2d_pars (Gaussian2dParams):
+        image (numpy.ndarray):
+
+    Returns:
+        None
+
+    """
+    model = AstropyGauss2d(amplitude=gauss2d_pars.amplitude,
+                           x_mean=gauss2d_pars.x_centre,
+                           y_mean=gauss2d_pars.y_centre,
+                           x_stddev=gauss2d_pars.semimajor,
+                           y_stddev=gauss2d_pars.semiminor,
+                           theta=gauss2d_pars.theta
                            )
-    image += evaluate_model_on_pixel_grid(image.shape, model)
+    bb_width = 6. * gauss2d_pars.semimajor
+    # model.bounding_box = (
+    #     (gauss2d_pars.y_centre - bb_width, gauss2d_pars.y_centre + bb_width),
+    #     (gauss2d_pars.x_centre - bb_width, gauss2d_pars.x_centre + bb_width),
+    # )
+    ydim, xdim = image.shape
+    # ygrid, xgrid = np.mgrid[:ydim, :xdim]
+    # image += model(xgrid, ygrid, with_bounding_box=True)
+    eval_ymin = max(0, int(np.floor(gauss2d_pars.y_centre - bb_width)))
+    eval_ymax = min(ydim, int(np.ceil(gauss2d_pars.y_centre + bb_width)))
+    eval_xmin = max(0, int(np.floor(gauss2d_pars.x_centre - bb_width)))
+    eval_xmax = min(xdim, int(np.ceil(gauss2d_pars.x_centre + bb_width)))
+    yslice = slice(eval_ymin, eval_ymax)
+    xslice = slice(eval_xmin, eval_xmax)
+    ygrid, xgrid = np.mgrid[yslice, xslice]
+    image[yslice, xslice] += model(xgrid, ygrid)
 
-
-def evaluate_model_on_pixel_grid(image_shape, model):
-    ydim, xdim = image_shape
-    ygrid, xgrid = np.mgrid[:ydim, :xdim]
-    return model(xgrid, ygrid)
 
 
 def sample_sim_radio_image(nstep):
