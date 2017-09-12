@@ -57,6 +57,12 @@ def generate_random_source_params(n_sources,
         raise ValueError("Axis ratios must be 1. at minimum "
                          "(ensures 'semimajor > semiminor')")
 
+    if (amplitude_range[1] < amplitude_range[0]
+        or semiminor_range[1] < semiminor_range[0]
+        or axis_ratio_range[1] < axis_ratio_range[0]
+        ):
+        raise ValueError("Range-valued tuples must be in order (min,max)")
+
     rstate = np.random.RandomState(seed)
     x = base_x + rstate.uniform(0., 1., n_sources)
     y = base_y + rstate.uniform(0., 1., n_sources)
@@ -83,26 +89,25 @@ def generate_random_source_params(n_sources,
     return [Gaussian2dParams(*tuple(param_row)) for param_row in param_stack]
 
 
-def generate_sourcegrid_base_positions(image_size,
-                                       n_sources):
+def calculate_sourcegrid_base_positions(image_size,
+                                        n_sources):
     sources_per_row = int(math.ceil(math.sqrt(n_sources)))
     source_spacing = image_size / sources_per_row
     base_positions = np.mgrid[
                      0: (sources_per_row) * source_spacing:source_spacing,
                      0: (sources_per_row) * source_spacing:source_spacing,
                      ]
-    base_positions= np.array(base_positions, dtype=np.float_)
+    base_positions = base_positions.astype(np.float_)
     base_positions += source_spacing / 2.
     return source_spacing, base_positions
 
 
-
-def generate_grid_of_random_sources(image_size,
-                                    n_sources,
-                                    amplitude_range,
-                                    semiminor_range,
-                                    axis_ratio_range,
-                                    seed=None):
+def random_sources_on_grid(image_size,
+                           n_sources,
+                           amplitude_range,
+                           semiminor_range,
+                           axis_ratio_range,
+                           seed=None):
     """
     Generate a list of sources that are approximately located on a square grid.
 
@@ -136,12 +141,25 @@ def generate_grid_of_random_sources(image_size,
         seed=seed
     )
 
-    source_spacing, basegrid = generate_sourcegrid_base_positions(
+    source_spacing, basegrid = calculate_sourcegrid_base_positions(
         image_size, n_sources)
     min_sensible_spacing = 10. * max(semiminor_range) * max(axis_ratio_range)
     if source_spacing < min_sensible_spacing:
-        raise ValueError("Sources would be spaced too closely to be reliably"
-                         "non-blended.")
+        raise ValueError(
+            "Sources would be spaced too closely to be reliably non-blended.")
+
+    y_grid, x_grid = basegrid
+    y_offsets = y_grid.ravel()
+    x_offsets = x_grid.ravel()
+    randomly_offset_sources = []
+    for idx in range(n_sources):
+        input_src = zero_positioned_sources[idx]
+        randomly_offset_sources.append(
+            attr.evolve(input_src,
+                        y_centre=input_src.y_centre + y_offsets[idx],
+                        x_centre=input_src.x_centre + x_offsets[idx],
+                        ))
+    return randomly_offset_sources
 
 
 def check_single_source_extraction_successful(source_params, sf_image):

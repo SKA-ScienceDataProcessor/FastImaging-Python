@@ -11,7 +11,7 @@ from fastimgproto.fixtures.image import (
     gaussian_point_source,
     uncorrelated_gaussian_noise_background,
 )
-from fastimgproto.fixtures.sourcefits import (
+from fastimgproto.fixtures.sourcefind import (
     check_single_source_extraction_successful,
 )
 from fastimgproto.sourcefind.fit import Gaussian2dParams

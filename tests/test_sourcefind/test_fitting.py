@@ -10,7 +10,7 @@ import scipy.optimize
 from pytest import approx
 
 from fastimgproto.fixtures.image import add_gaussian2d_to_image
-from fastimgproto.fixtures.sourcefits import (
+from fastimgproto.fixtures.sourcefind import (
     check_single_source_extraction_successful,
     generate_random_source_params,
 )
