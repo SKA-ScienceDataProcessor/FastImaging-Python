@@ -29,9 +29,7 @@ def reset_progress_bar(progress_bar, total, description="Doing something"):
 
 def nonzero_bounding_slice_2d(input):
     """
-    Get slices defining the bounding box for any nonzero / True-valued subarray.
-
-    ...of a 2-dimensional ndarray.
+    Get bounding box about nonzero-valued subarray of a 2-d ndarray.
 
     NB Not a Number (NaN), positive infinity and negative infinity evaluate to
     True because these are not equal to zero (cf numpy.any).

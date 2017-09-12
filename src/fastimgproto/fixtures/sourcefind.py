@@ -1,22 +1,12 @@
 from __future__ import division, print_function
 
-import inspect
 import logging
 import math
 
 import attr
 import numpy as np
-from pytest import approx
 
-from fastimgproto.fixtures.image import (
-    add_gaussian2d_to_image,
-    gaussian_point_source,
-)
-from fastimgproto.sourcefind.fit import (
-    Gaussian2dParams,
-    gaussian2d,
-    gaussian2d_jac,
-)
+from fastimgproto.sourcefind.fit import Gaussian2dParams
 from fastimgproto.sourcefind.image import SourceFindImage
 
 logger = logging.getLogger(__name__)

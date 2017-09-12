@@ -82,7 +82,6 @@ def add_gaussian2d_to_image(gauss2d_pars, image):
     image[yslice, xslice] += model(xgrid, ygrid)
 
 
-
 def sample_sim_radio_image(nstep):
     """
     Simulate a sample radio-image, to use as test-data in sourcefinding.

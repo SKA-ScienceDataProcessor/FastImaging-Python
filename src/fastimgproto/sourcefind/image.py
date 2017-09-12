@@ -92,6 +92,7 @@ class IslandParams(object):
 
     # Required for initialization
     sign = attrib()
+
     @sign.validator
     def check_sign(instance, attribute, value):
         if value not in (-1, 1):
@@ -139,6 +140,7 @@ class Island(object):
                          validator=attr.validators.instance_of(np.ndarray))
     mask = attrib(cmp=False,
                   validator=attr.validators.instance_of(np.ndarray))
+
     @mask.validator
     def check_mask_shape(instance, attribute, value):
         if not value.shape == instance.parent_data.shape:
@@ -375,6 +377,10 @@ class SourceFindImage(object):
         island.params.moments_fit = moments_fits
         return moments_fits
 
+    def fit_islands(self, verbose=0):
+        for i in self.islands:
+            self.fit_gaussian_2d(i, verbose=verbose)
+
     def fit_gaussian_2d(self, island, verbose=0):
         # x, y, x_centre, y_centre, amplitude, x_stddev, y_stddev, theta
         y_indices, x_indices = island.unmasked_pixel_indices
@@ -433,13 +439,14 @@ class SourceFindImage(object):
 
         initial_params = island.params.moments_fit
 
+        # max_nfev = 3 * len(island.data.compressed())
         # Using the jacobian mostly gives bad fits?
         lsq_result = least_squares(fun=island_residuals,
                                    # jac=located_jacobian,
                                    x0=attr.astuple(initial_params),
                                    method='dogbox',
                                    verbose=verbose,
-                                   # max_nfev=50,
+                                   # max_nfev=max_nfev,
                                    )
         island.params.optimize_result = lsq_result
         island.params.leastsq_fit = Gaussian2dParams.from_unconstrained_parameters(
