@@ -1,3 +1,4 @@
+import logging
 import math
 
 import astropy.stats
@@ -10,6 +11,8 @@ from scipy.optimize import OptimizeResult, least_squares
 
 from fastimgproto.sourcefind.fit import Gaussian2dParams, gaussian2d
 from fastimgproto.utils import nonzero_bounding_slice_2d
+
+logger = logging.getLogger(__name__)
 
 _STRUCTURE_ELEMENT = np.array([[1, 1, 1],
                                [1, 1, 1],
@@ -210,6 +213,8 @@ class SourceFindImage(object):
 
     def __init__(self, data, detection_n_sigma, analysis_n_sigma,
                  rms_est=None, find_negative_sources=True):
+        logger.debug("Performing sourcefinding on image of size {}".format(
+            data.shape))
         self.data = data
         self.detection_n_sigma = detection_n_sigma
         self.analysis_n_sigma = analysis_n_sigma
@@ -222,13 +227,16 @@ class SourceFindImage(object):
         self.ygrid, self.xgrid = np.indices(self.data.shape)
 
         # Label connected regions
+        logger.debug("Finding positive islands...")
         self.label_map, region_extrema = self._label_detection_islands(1)
         if find_negative_sources:
+            logger.debug("Finding negative islands...")
             neg_label_map, neg_label_extrema = self._label_detection_islands(-1)
             self.label_map += neg_label_map
             region_extrema.update(neg_label_extrema)
 
         self.islands = []
+        logger.debug("Calculating moments...")
         for label_num, extremum in region_extrema.items():
             # Determine if the label number is positive or negative:
             label_sign = int(math.copysign(1, label_num))
@@ -241,6 +249,7 @@ class SourceFindImage(object):
                             params=init_params)
             self.calculate_moments(island)
             self.islands.append(island)
+        logger.debug("... Done.")
 
     def _label_detection_islands(self, sign):
         """
@@ -318,13 +327,20 @@ class SourceFindImage(object):
         See Hanno Spreeuw's thesis for formulae (eqn 2.50 -- 2.54).
         (Will add a derivation notebook to repo if time allows).
         """
+
+        # Although the island mask renders most pixels irrelevant, we
+        # still iterate over them by default.
+        # Calculations are much more efficient if we only iterate over the
+        # 'bounding box' rectangle enclosing the island:
+        bbox = nonzero_bounding_slice_2d(~island.mask)
+
         sign = island.sign
         # If working with a negative source, be sure to take a positive copy
         # (modulus) of the island data to get the moment calculations correct.
-        abs_data = sign * island.data
+        abs_data = sign * island.data[bbox]
         sum = abs_data.sum()
-        y = self.ygrid
-        x = self.xgrid
+        y = self.ygrid[bbox]
+        x = self.xgrid[bbox]
         x_bar = (x * abs_data).sum() / sum
         y_bar = (y * abs_data).sum() / sum
         xx_bar = (x * x * abs_data).sum() / sum - x_bar * x_bar

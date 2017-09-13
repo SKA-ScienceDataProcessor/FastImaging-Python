@@ -49,6 +49,11 @@ def gaussian_point_source(x_centre,
 def add_gaussian2d_to_image(gauss2d_pars, image):
     """
     Evaluate the Gaussian2dParams and add to the image-pixel values.
+
+    Instead of evaluating the Gaussian profile over the entire image, we
+    define a bounding box which covers the profile out to at least 6-sigma,
+    and evaluate over that.
+
     Args:
         gauss2d_pars (Gaussian2dParams):
         image (numpy.ndarray):
