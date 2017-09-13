@@ -113,10 +113,10 @@ class IslandParams(object):
 
     # Useful for debugging - store the full report on the least-squares fit.
     # Don't show it in the standard repr, though - too verbose!
-    optimize_result = attrib(
+    fitter_report = attrib(
         default=None, repr=False, cmp=False,
         validator=attr.validators.optional(
-            attr.validators.instance_of(OptimizeResult)
+            attr.validators.instance_of((str, OptimizeResult))
         ))
 
 
@@ -448,7 +448,7 @@ class SourceFindImage(object):
                                    verbose=verbose,
                                    # max_nfev=max_nfev,
                                    )
-        island.params.optimize_result = lsq_result
+        island.params.fitter_report = lsq_result
         island.params.leastsq_fit = Gaussian2dParams.from_unconstrained_parameters(
             *tuple(lsq_result.x))
         return island.params.leastsq_fit
