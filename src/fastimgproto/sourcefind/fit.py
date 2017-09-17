@@ -93,7 +93,11 @@ class Gaussian2dParams(object):
 
         Returns:
             numpy.ndarray: 2x2 matrix representing covariance matrix in the
-            reference x-y frame.
+            reference x-y frame. Covariance matrix elements are ordered
+            like::
+
+                [[sigma_x**2, rho*sigma_x*sigma_y],
+                 [rho*sigma_x*sigma_y, sigma_y**2]]
         """
         rotated_cov = np.array([[self.semimajor ** 2, 0],
                                 [0, self.semiminor ** 2]],
