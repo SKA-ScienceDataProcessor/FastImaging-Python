@@ -16,17 +16,29 @@ def cpp_sourcefind_result_to_islandparams(result):
     sign = r[0]
     extremum = Pixel(value=r[1],
                      index=PixelIndex(x=r[2], y=r[3]), )
-    xbar = r[4]
-    ybar = r[5]
-    fitvals = r[6]
-    report = r[7]
-    gpars = Gaussian2dParams(x_centre=fitvals.x_centre,
-                             y_centre=fitvals.y_centre,
-                             amplitude=fitvals.amplitude,
-                             semimajor=fitvals.semimajor,
-                             semiminor=fitvals.semiminor, theta=fitvals.theta
-                             )
-    return IslandParams(sign=sign, extremum=extremum, leastsq_fit=gpars,
+    moments_fit_vals = r[4]
+    lsq_fit_vals = r[5]
+    report = r[6]
+    moments_fit = Gaussian2dParams(x_centre=moments_fit_vals.x_centre,
+                                   y_centre=moments_fit_vals.y_centre,
+                                   amplitude=moments_fit_vals.amplitude,
+                                   semimajor=moments_fit_vals.semimajor,
+                                   semiminor=moments_fit_vals.semiminor,
+                                   theta=moments_fit_vals.theta
+                                   )
+    if lsq_fit_vals.amplitude == 0:
+        leastsq_fit = None
+    else:
+        leastsq_fit = Gaussian2dParams(x_centre=lsq_fit_vals.x_centre,
+                                       y_centre=lsq_fit_vals.y_centre,
+                                       amplitude=lsq_fit_vals.amplitude,
+                                       semimajor=lsq_fit_vals.semimajor,
+                                       semiminor=lsq_fit_vals.semiminor,
+                                       theta=lsq_fit_vals.theta
+                                       )
+    return IslandParams(sign=sign, extremum=extremum,
+                        moments_fit=moments_fit,
+                        leastsq_fit=leastsq_fit,
                         fitter_report=report)
 
 
@@ -34,11 +46,10 @@ def cpp_sourcefind(image_data,
                    detection_n_sigma,
                    analysis_n_sigma,
                    rms_est,
-                   find_negative=True,
+                   find_negative_sources=True,
                    sigma_clip_iters=5,
                    binapprox_median=True,
-                   compute_barycentre=True,
-                   gaussian_fitting=True,
+                   gaussian_fitting=False,
                    generate_labelmap=False,
                    # Other options: stp_python.CeresDiffMethod.AutoDiff, stp_python.CeresDiffMethod.AnalyticDiff_SingleResBlk, stp_python.CeresDiffMethod.AnalyticDiff
                    ceres_diffmethod=stp_python.CeresDiffMethod.AnalyticDiff,
@@ -50,10 +61,14 @@ def cpp_sourcefind(image_data,
 
     # Call source_find
     raw_results = stp_python.source_find_wrapper(
-        image_data, detection_n_sigma, analysis_n_sigma, rms_est, find_negative,
-        sigma_clip_iters,
-        binapprox_median, compute_barycentre, gaussian_fitting,
-        generate_labelmap, ceres_diffmethod, ceres_solvertype)
+        image_data, detection_n_sigma, analysis_n_sigma, rms_est,
+        find_negative_sources=find_negative_sources,
+        sigma_clip_iters=sigma_clip_iters,
+        binapprox_median=binapprox_median,
+        gaussian_fitting=gaussian_fitting,
+        generate_labelmap=generate_labelmap,
+        ceres_diffmethod=ceres_diffmethod,
+        ceres_solvertype=ceres_solvertype)
 
     return [cpp_sourcefind_result_to_islandparams(r) for r in raw_results]
 

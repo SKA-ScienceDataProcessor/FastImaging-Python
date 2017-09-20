@@ -5,6 +5,7 @@ import astropy.stats
 import attr
 import attr.validators
 import numpy as np
+import six
 from attr import attrib, attrs
 from scipy import ndimage
 from scipy.optimize import OptimizeResult, least_squares
@@ -56,8 +57,11 @@ class PixelIndex(object):
     Attrib ordering is (y,x) so we can init-from/convert-to numpy tuple
     indices with the default ordering.
     """
-    y = attrib(validator=attr.validators.instance_of((int, np.int_)))
-    x = attrib(validator=attr.validators.instance_of((int, np.int_)))
+
+    y = attrib(
+        validator=attr.validators.instance_of((six.integer_types, np.int_)))
+    x = attrib(
+        validator=attr.validators.instance_of((six.integer_types, np.int_)))
 
 
 @attrs
@@ -119,7 +123,7 @@ class IslandParams(object):
     fitter_report = attrib(
         default=None, repr=False, cmp=False,
         validator=attr.validators.optional(
-            attr.validators.instance_of((str, OptimizeResult))
+            attr.validators.instance_of((six.string_types, OptimizeResult))
         ))
 
 
@@ -463,6 +467,8 @@ class SourceFindImage(object):
                                    method='dogbox',
                                    verbose=verbose,
                                    # max_nfev=max_nfev,
+                                   xtol=1e-4,
+                                   ftol=1e-4,
                                    )
         island.params.fitter_report = lsq_result
         island.params.leastsq_fit = Gaussian2dParams.from_unconstrained_parameters(
