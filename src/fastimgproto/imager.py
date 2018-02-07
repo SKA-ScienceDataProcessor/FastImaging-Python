@@ -68,11 +68,10 @@ def image_visibilities(
     grid_pixel_width_lambda = 1.0 / (cell_size.to(u.rad) * image_size)
     uvw_in_pixels = (uvw_lambda / grid_pixel_width_lambda).value
 
-    uv_in_pixels = uvw_in_pixels[:, :2]
     vis_grid, sample_grid = convolve_to_grid(kernel_func,
                                              support=kernel_support,
                                              image_size=image_size_int,
-                                             uv=uv_in_pixels,
+                                             uvw=uvw_in_pixels,
                                              vis=vis,
                                              vis_weights=vis_weights,
                                              exact=kernel_exact,

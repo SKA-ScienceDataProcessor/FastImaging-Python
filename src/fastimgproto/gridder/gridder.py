@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def convolve_to_grid(kernel_func,
                      support,
                      image_size,
-                     uv,
+                     uvw,
                      vis,
                      vis_weights,
                      exact=True,
@@ -57,8 +57,8 @@ def convolve_to_grid(kernel_func,
         image_size (int): Width of the image in pixels. NB we assume
             the pixel `[image_size//2,image_size//2]` corresponds to the origin
             in UV-space.
-        uv (numpy.ndarray): UV-coordinates of visibilities.
-            2d array of `float_`, shape: `(n_vis, 2)`.
+        uvw (numpy.ndarray): UVW-coordinates of visibilities.
+            2d array of `float_`, shape: `(n_vis, 3)`.
             assumed ordering is u-then-v, i.e. `u, v = uv[idx]`
         vis (numpy.ndarray): Complex visibilities.
             1d array, shape: `(n_vis,)`.
@@ -80,10 +80,12 @@ def convolve_to_grid(kernel_func,
             Note numpy style index-order, i.e. access like ``vis_grid[v,u]``.
 
     """
-    assert len(uv) == len(vis)
+    assert len(uvw) == len(vis)
     # Check for sensible combinations of exact / oversampling parameter-values:
     if not exact:
         assert oversampling >= 1
+
+    uv = uvw[:, :2]
 
     # Calculate nearest integer pixel co-ords ('rounded positions')
     uv_rounded = np.around(uv)
