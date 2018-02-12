@@ -39,6 +39,7 @@ if CPP_BINDINGS_PRESENT:
 
 
 def cpp_image_visibilities(vis,
+                           vis_weights,
                            uvw_lambda,
                            image_size,
                            cell_size,
@@ -111,6 +112,7 @@ def cpp_image_visibilities(vis,
 
     (image, beam) = stp_python.image_visibilities_wrapper(
         vis,
+        vis_weights,
         uvw_lambda,
         int(image_size.to(u.pix).value),
         cell_size.to(u.arcsec).value,
