@@ -12,17 +12,17 @@ def test_single_pixel_overlap_pillbox():
     # [-4, -3, -2, -1, 0, 1, 2, 3 ]
     n_image = 8
     support = 1
-    uv = np.array([(-2., 0), (-2., 0)])
+    uvw = np.array([(-2., 0, 0), (-2., 0, 0)])
     # Real vis will be complex_, but we can substitute float_ for testing:
     vis_amplitude = 42.123
-    vis = vis_amplitude * np.ones(len(uv), dtype=np.float_)
+    vis = vis_amplitude * np.ones(len(uvw), dtype=np.float_)
     vis_weights = np.ones_like(vis)
     kernel_func = conv_funcs.Pillbox(0.5)
 
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv,
+                                               uvw=uvw,
                                                vis=vis,
                                                vis_weights=vis_weights,
                                                oversampling=None)
@@ -47,22 +47,22 @@ def test_bounds_checking():
     # n_image = 8 then the co-ords in the u/x-direction are:
     # [-4, -3, -2, -1, 0, 1, 2, 3 ]
     # Support = 2 takes this over the edge (since -3 -2 = -5):
-    bad_uv = np.array([(-3., 0)])
-    vis = np.ones(len(bad_uv), dtype=np.float_)
+    bad_uvw = np.array([(-3., 0, 0)])
+    vis = np.ones(len(bad_uvw), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(1.5)
 
     with pytest.raises(ValueError):
         grid = convolve_to_grid(kernel_func,
                                 support=support,
                                 image_size=n_image,
-                                uv=bad_uv,
+                                uvw=bad_uvw,
                                 vis=vis,
                                 vis_weights=np.ones_like(vis), )
 
     grid, _ = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=bad_uv,
+                               uvw=bad_uvw,
                                vis=vis,
                                vis_weights=np.ones_like(vis),
                                raise_bounds=False
@@ -71,25 +71,25 @@ def test_bounds_checking():
 
     # Now check we're filtering indices in the correct order
     # The mixed
-    good_uv = np.array([(0., 0.)])
-    mixed_uv = np.array([(-3., 0),
-                         (0., 0.)])
+    good_uvw = np.array([(0., 0., 0.)])
+    mixed_uvw = np.array([(-3., 0., 0.),
+                         (0., 0., 0.)])
     good_grid, _ = convolve_to_grid(
         kernel_func,
         support=support,
         image_size=n_image,
-        uv=good_uv,
-        vis=np.ones(len(good_uv), dtype=np.float_),
-        vis_weights=np.ones(len(good_uv), dtype=np.float_),
+        uvw=good_uvw,
+        vis=np.ones(len(good_uvw), dtype=np.float_),
+        vis_weights=np.ones(len(good_uvw), dtype=np.float_),
         raise_bounds=False
     )
     mixed_grid, _ = convolve_to_grid(
         kernel_func,
         support=support,
         image_size=n_image,
-        uv=mixed_uv,
-        vis=np.ones(len(mixed_uv), dtype=np.float_),
-        vis_weights=np.ones(len(mixed_uv), dtype=np.float_),
+        uvw=mixed_uvw,
+        vis=np.ones(len(mixed_uvw), dtype=np.float_),
+        vis_weights=np.ones(len(mixed_uvw), dtype=np.float_),
         raise_bounds=False
     )
 
@@ -100,14 +100,14 @@ def test_multi_pixel_pillbox():
     n_image = 8
     support = 1
 
-    uv = np.array([(-2., 0)])
-    vis = np.ones(len(uv), dtype=np.float_)
+    uvw = np.array([(-2., 0, 0)])
+    vis = np.ones(len(uvw), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(1.1)
 
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv,
+                                               uvw=uvw,
                                                vis=vis,
                                                vis_weights=np.ones_like(vis),
                                                )
@@ -135,14 +135,14 @@ def test_small_pillbox():
     n_image = 8
     support = 1
 
-    uv = np.array([(-1.5, 0.5)])
-    vis = np.ones(len(uv), dtype=np.float_)
+    uvw = np.array([(-1.5, 0.5, 0.0)])
+    vis = np.ones(len(uvw), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(0.55)
 
     grid, _ = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=uv,
+                               uvw=uvw,
                                vis=vis,
                                vis_weights=np.ones_like(vis),
                                )
@@ -169,18 +169,18 @@ def test_multiple_complex_vis():
     n_image = 8
     support = 2
 
-    uv = np.array([(-2., 1),
-                   (1., -1),
+    uvw = np.array([(-2., 1, 0),
+                   (1., -1, 0),
                    ])
-    # vis = np.ones(len(uv), dtype=np.float_)
-    vis = np.ones(len(uv), dtype=np.complex_)
+    # vis = np.ones(len(uvw), dtype=np.float_)
+    vis = np.ones(len(uvw), dtype=np.complex_)
     vis_weights = np.ones_like(vis)
     kernel_func = conv_funcs.Pillbox(1.1)
 
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv,
+                                               uvw=uvw,
                                                vis=vis,
                                                vis_weights=vis_weights,
                                                )
@@ -214,18 +214,18 @@ def test_nearby_complex_vis():
     n_image = 8
     support = 2
 
-    uv = np.array([(-2., 1),
-                   (0., -1),
+    uvw = np.array([(-2., 1, 0),
+                   (0., -1, 0),
                    ])
-    # vis = np.ones(len(uv), dtype=np.float_)
-    vis = np.ones(len(uv), dtype=np.complex_)
+    # vis = np.ones(len(uvw), dtype=np.float_)
+    vis = np.ones(len(uvw), dtype=np.complex_)
     vis_weights = np.ones_like(vis)
     kernel_func = conv_funcs.Pillbox(1.1)
 
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
                                                support=support,
                                                image_size=n_image,
-                                               uv=uv,
+                                               uvw=uvw,
                                                vis=vis,
                                                vis_weights=vis_weights,
                                                )
@@ -256,23 +256,23 @@ def test_triangle():
     # Now let's try a triangle function, larger support this time:
     n_image = 8
     support = 2
-    uv = np.array([(1.0, 0.0)])
-    subpix_offset = np.array([(0.1, -0.15)])
-    vis = np.ones(len(uv), dtype=np.float_)
+    uvw = np.array([(1.0, 0.0, 0.0)])
+    subpix_offset = np.array([(0.1, -0.15, 0.0)])
+    vis = np.ones(len(uvw), dtype=np.float_)
     vis_weights = np.ones_like(vis)
     # offset = np.array([(0.0, 0.0)])
-    uv += subpix_offset
+    uvw += subpix_offset
     kernel_func = conv_funcs.Triangle(2.0)
 
     vis_grid, sample_grid = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=uv,
+                               uvw=uvw,
                                vis=vis,
                                vis_weights=vis_weights,
                                )
     kernel = Kernel(kernel_func=kernel_func, support=support,
-                    offset=subpix_offset[0],
+                    offset=subpix_offset[0, :2],
                     oversampling=1)
 
     assert vis_grid.sum() == vis.sum()

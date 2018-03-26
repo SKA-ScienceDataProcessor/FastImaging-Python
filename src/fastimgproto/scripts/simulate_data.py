@@ -40,7 +40,7 @@ def cli(output_npz, nstep):
     obs_central_frequency = 3. * u.GHz
     wavelength = const.c / obs_central_frequency
     transit_time = telescope.next_transit(pointing_centre.ra,
-                                          start_time=Time('2017-01-01'))
+                                          start_time=Time('2018-01-01'))
     obs_times = transit_time + np.linspace(-1, 1, nstep) * u.hr
     logger.info("Generating UVW-baselines for {} timesteps".format(nstep))
     with Tqdm() as progress_bar:

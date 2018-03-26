@@ -2,6 +2,7 @@ import astropy.units as u
 import numpy as np
 from astropy.coordinates import Longitude
 from astropy.time import Time
+from math import isclose
 
 from fastimgproto.coords import time_of_next_transit
 
@@ -38,4 +39,4 @@ def test_basic_functionality():
     assert tt_lon30 > tt_lon0
     # Difference should be 30 / 360 = 2 sidereal hours
     shour = 1./24.*u.sday # Sidereal hour
-    assert 2.0 == (tt_lon30 - tt_lon0).to(u.s)/shour.to(u.s)
+    assert isclose(2.0, (tt_lon30 - tt_lon0).to(u.s)/shour.to(u.s), abs_tol=1e-8)

@@ -1,6 +1,6 @@
 """
 Generation of convolution kernel arrays, with optional sub-pixel origin offset
-and and oversampling.
+and oversampling.
 """
 
 import numpy as np
@@ -32,6 +32,7 @@ class Kernel(object):
         pad (bool): Whether to pad the array by an extra pixel-width.
             This is used when generating an oversampled kernel that will be used
             for interpolation.
+        normalize (bool): Whether to normalize the kernel.
 
     Attributes:
         array (numpy.ndarray): The sampled kernel function.
@@ -63,18 +64,19 @@ class Kernel(object):
         else:
             padding = 0
 
-        array_size = 2 * (self.support + padding) * self.oversampling + 1
+        self.array_size = 2 * (self.support + padding) * self.oversampling + 1
         self.centre_idx = (self.support + padding) * self.oversampling
 
         # Distance from each pixel's sample position to kernel-centre position:
         # (units of oversampled pixels)
-        oversampled_xy = np.arange(array_size,
+        oversampled_xy = np.arange(self.array_size,
                                    dtype=np.float_) - self.centre_idx
 
         # Now translate that to distance from sampling origin, in units of
         # regular pixels:
         self.x_distance_vec = oversampled_xy / oversampling - offset[0]
         self.y_distance_vec = oversampled_xy / oversampling - offset[1]
+
         # Re-orient y_vec as a column
         self.y_distance_vec = np.atleast_2d(self.y_distance_vec).T
 
@@ -84,4 +86,4 @@ class Kernel(object):
         # Now multiply separable components to get the 2-d kernel:
         self.array = x_kernel_coeffs * y_kernel_coeffs
         if normalize:
-            self.array /= self.array.sum()
+            self.array /= (self.array.sum())

@@ -17,7 +17,7 @@ def test_normalization():
     # Real vis will be complex_, but we can substitute float_ for testing:
     vis_amplitude = 42.123
     vis = vis_amplitude * np.ones(len(uvw_pixel_coords), dtype=np.float_)
-    vis_weights = [1., 1.5, 3. / 4.]
+    vis_weights = np.array([1., 1.5, 3. / 4.])
     cell_size = 1 * u.arcsec
 
     grid_pixel_width_lambda = 1.0 / (cell_size.to(u.rad) * n_image)
@@ -31,7 +31,6 @@ def test_normalization():
                                      cell_size=cell_size,
                                      kernel_func=kernel_func,
                                      kernel_support=3,
-
                                      )
 
     assert approx(beam.max()) == 1.0
@@ -46,7 +45,6 @@ def test_normalization():
                                      cell_size=cell_size,
                                      kernel_func=kernel_func,
                                      kernel_support=3,
-
                                      )
 
     assert approx(beam.max()) == 1.0

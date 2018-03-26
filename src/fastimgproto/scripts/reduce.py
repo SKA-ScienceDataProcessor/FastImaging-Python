@@ -125,7 +125,10 @@ def main(uvw_lambda,
                                                 cell_size=cell_size,
                                                 kernel_func=kernel_func,
                                                 kernel_support=kernel_support,
-                                                kernel_exact=True,
+                                                kernel_exact=False,
+                                                kernel_oversampling=8,
+                                                num_wplanes=16,
+                                                max_wpconv_support=20,
                                                 progress_bar=progress_bar)
     logger.info("Running sourcefinder on image")
     sfimage = SourceFindImage(data=np.real(image),

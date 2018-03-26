@@ -166,19 +166,19 @@ def test_oversampled_gridding():
     # Let's grid a triangle function
     n_image = 8
     support = 2
-    uv = np.array([(1.0, 0.0),
-                   (1.3, 0.0),
-                   (.01, -1.32),
+    uvw = np.array([(1.0, 0.0, 0.0),
+                   (1.3, 0.0, 0.0),
+                   (.01, -1.32, 0.0),
                    ])
 
-    vis = np.ones(len(uv), dtype=np.float_)
+    vis = np.ones(len(uvw), dtype=np.float_)
     vis_weights=np.ones_like(vis)
     kernel_func = conv_funcs.Triangle(2.0)
 
     vis_grid, sample_grid = convolve_to_grid(kernel_func,
                                support=support,
                                image_size=n_image,
-                               uv=uv,
+                               uvw=uvw,
                                vis=vis,
                                vis_weights=vis_weights,
                                exact=False,

@@ -5,7 +5,9 @@ import logging
 
 import numpy as np
 import tqdm
+from copy import deepcopy
 
+from fastimgproto.gridder.wkernel_generation import WKernel
 from fastimgproto.gridder.kernel_generation import Kernel
 from fastimgproto.utils import reset_progress_bar
 
@@ -13,14 +15,17 @@ logger = logging.getLogger(__name__)
 
 
 def convolve_to_grid(kernel_func,
-                     support,
+                     aa_support,
+                     max_conv_support,
                      image_size,
-                     uvw,
+                     cell_size,
+                     uvw_lambda,
                      vis,
                      vis_weights,
                      exact=True,
                      oversampling=0,
-                     raise_bounds=True,
+                     num_wplanes=0,
+                     raise_bounds=False,
                      progress_bar=None):
     """
     Grid visibilities using convolutional gridding.
@@ -57,6 +62,7 @@ def convolve_to_grid(kernel_func,
         image_size (int): Width of the image in pixels. NB we assume
             the pixel `[image_size//2,image_size//2]` corresponds to the origin
             in UV-space.
+
         uvw (numpy.ndarray): UVW-coordinates of visibilities.
             2d array of `float_`, shape: `(n_vis, 3)`.
             assumed ordering is u-then-v, i.e. `u, v = uv[idx]`
@@ -67,6 +73,8 @@ def convolve_to_grid(kernel_func,
         exact (bool): Calculate exact kernel-values for every UV-sample.
         oversampling (int): Controls kernel-generation if ``exact==False``.
             Larger values give a finer-sampled set of pre-cached kernels.
+        num_wplanes (int): Number of planes for W-Projection. Set to zero or
+            None to disable W-projection.
         raise_bounds (bool): Raise an exception if any of the UV
             samples lie outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
@@ -80,66 +88,151 @@ def convolve_to_grid(kernel_func,
             Note numpy style index-order, i.e. access like ``vis_grid[v,u]``.
 
     """
-    assert len(uvw) == len(vis)
+    if num_wplanes is None:
+        num_wplanes = 0
+    if num_wplanes > 0:
+        assert exact is False
+    assert len(uvw_lambda) == len(vis)
+
     # Check for sensible combinations of exact / oversampling parameter-values:
     if not exact:
         assert oversampling >= 1
+        # We use floordiv and multiply to convert to an even oversampling value
+        if oversampling > 2:
+            oversampling = (oversampling // 2) * 2
 
-    uv = uvw[:, :2]
+    # Sort uvw lambda data by increasing w-value
+    sort_arg = uvw_lambda[:, 2].argsort()
+    uvw_lambda = uvw_lambda[sort_arg]
+    vis = vis[sort_arg]
+    vis_weights = vis_weights[sort_arg]
+
+    # Size of a UV-grid pixel, in multiples of wavelength (lambda):
+    uv = uvw_lambda[:, :2]
+    w = uvw_lambda[:, 2]
+    grid_pixel_width_lambda = 1.0 / (cell_size * image_size)
+    uv_in_pixels = (uv / grid_pixel_width_lambda)
 
     # Calculate nearest integer pixel co-ords ('rounded positions')
-    uv_rounded = np.around(uv)
+    uv_rounded = np.around(uv_in_pixels)
     # Calculate sub-pixel vector from rounded-to-precise positions
     # ('fractional coords'):
-    uv_frac = uv - uv_rounded
+    uv_frac = uv_in_pixels - uv_rounded
     uv_rounded_int = uv_rounded.astype(np.int)
     # Now get the corresponding grid-pixel indices by adding the origin offset
     kernel_centre_on_grid = uv_rounded_int + (image_size // 2, image_size // 2)
+
+    # Set convolution kernel support for gridding
+    if num_wplanes > 0:
+        conv_support = max_conv_support
+    else:
+        conv_support = aa_support
 
     # Check if any of our kernel placements will overlap / lie outside the
     # grid edge.
     good_vis_idx = _bounds_check_kernel_centre_locations(
         uv, kernel_centre_on_grid,
-        support=support, image_size=image_size,
+        support=conv_support, image_size=image_size,
         raise_if_bad=raise_bounds)
 
-    vis_grid = np.zeros((image_size, image_size), dtype=vis.dtype)
+    if not exact:
+        oversampled_offset = calculate_oversampled_kernel_indices(
+            uv_frac, oversampling)
+
+        # Compute W-Planes and convolution kernels for W-Projection
+        if num_wplanes > 0:
+            num_gvis = len(good_vis_idx)
+
+            # Define w-planes
+            plane_size = np.ceil(num_gvis / num_wplanes)
+            w_avg_values = np.empty(num_wplanes)
+            w_planes_idx = np.empty_like(w)
+
+            for idx in range(0, num_wplanes):
+                begin = int(np.round(idx * plane_size))
+                end = int(min(np.round((idx + 1) * plane_size), num_gvis))
+                indexes = good_vis_idx[begin:end]
+                w_avg_values[idx] = np.average(w[indexes])
+                w_planes_idx[indexes] = idx
+                if end >= num_gvis:
+                    break
+
+            # Calculate kernel working area size
+            scale = 1
+            if (max_conv_support * 2 + 1) * oversampling >= image_size:
+                while (image_size * scale) <= (max_conv_support * 2 + 1) * oversampling:
+                    scale *= 2
+                workarea_size = image_size * scale
+                scale = 1.0 / scale
+            else:
+                while (image_size // (scale * 2)) > (max_conv_support * 2 + 1) * oversampling:
+                    scale *= 2
+                workarea_size = image_size // scale
+
+            workarea_centre = workarea_size // 2
+            aa_kernel_array = np.zeros((workarea_size, workarea_size), dtype=np.complex)
+            # Generate oversampled AA kernel
+            aa_kernel_oversampled = Kernel(kernel_func=kernel_func, support=aa_support,
+                                           offset=(0, 0),
+                                           oversampling=oversampling,
+                                           normalize=True
+                                           )
+            # Copy AA kernel to working area
+            aa_support = aa_kernel_oversampled.array_size // 2
+            xrange = slice(workarea_centre - aa_support, workarea_centre + aa_support + 1)
+            yrange = slice(workarea_centre - aa_support, workarea_centre + aa_support + 1)
+            aa_kernel_array[yrange, xrange] = aa_kernel_oversampled.array
+            # iFFT - transform AA kernel to image domain
+            kernel_img_array = np.real(np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(aa_kernel_array))))
+
+        else:
+            # Compute AA kernel cache
+            kernel_cache = populate_kernel_cache(kernel_func, aa_support, oversampling)
+
+    # Create gridding arrays
+    vis_grid = np.zeros((image_size, image_size), dtype=np.complex)
     # At the same time as we grid the visibilities, we track the grid-sampling
     # weights:
     sampling_grid = np.zeros_like(vis_grid)
     # We will compose the sample grid of floats or complex to match input dtype:
-    typed_one = np.array(1, dtype=vis.dtype)
+    typed_one = np.array(1, dtype=np.complex)
 
-    if not exact:
-        kernel_cache = populate_kernel_cache(
-            kernel_func, support, oversampling)
-        oversampled_offset = calculate_oversampled_kernel_indices(
-            uv_frac, oversampling)
     logger.debug("Gridding {} visibilities".format(len(good_vis_idx)))
     if progress_bar is not None:
-        reset_progress_bar(progress_bar, len(good_vis_idx),
-                           'Gridding visibilities')
+        reset_progress_bar(progress_bar, len(good_vis_idx), 'Gridding visibilities')
+
+    wplane = -1
     for idx in good_vis_idx:
         weight = vis_weights[idx]
         if weight == 0.:
             continue  # Skip this visibility if zero-weighted
+
+        if num_wplanes > 0:
+            # Get wplane idx
+            if wplane != w_planes_idx[idx]:
+                wplane = w_planes_idx[idx]
+                # Generate W-kernel
+                w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
+                                   scale=scale*oversampling)
+                kernel_cache = generate_kernel_cache_wprojection(w_kernel, kernel_img_array, conv_support, oversampling)
+
+        # Integer positions of the kernel
         gc_x, gc_y = kernel_centre_on_grid[idx]
-        # Generate a convolution kernel with the precise offset required:
-        xrange = slice(gc_x - support, gc_x + support + 1)
-        yrange = slice(gc_y - support, gc_y + support + 1)
         if exact:
-            kernel = Kernel(kernel_func=kernel_func, support=support,
-                            offset=uv_frac[idx], normalize=True)
-            normed_kernel_array = kernel.array
+            normed_kernel_array = Kernel(kernel_func=kernel_func, support=aa_support, offset=uv_frac[idx],
+                                         normalize=True).array
         else:
-            normed_kernel_array = kernel_cache[
-                tuple(oversampled_offset[idx])].array
+            normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])].array
+
+        # Generate a convolution kernel with the precise offset required:
+        xrange = slice(gc_x - conv_support, gc_x + conv_support + 1)
+        yrange = slice(gc_y - conv_support, gc_y + conv_support + 1)
+
         downweighted_kernel = weight * normed_kernel_array
         vis_grid[yrange, xrange] += vis[idx] * downweighted_kernel
         sampling_grid[yrange, xrange] += typed_one * downweighted_kernel
         if progress_bar is not None:
             progress_bar.update(1)
-
 
     return vis_grid, sampling_grid
 
@@ -262,3 +355,47 @@ def populate_kernel_cache(kernel_func, support, oversampling):
             cache[(x_step, y_step)] = kernel
 
     return cache
+
+
+def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, conv_support, oversampling):
+    """
+    Generate a cache of kernels at oversampled-pixel offsets for W-Projection.
+
+    We need kernels for offsets of up to ``oversampling//2`` oversampling-pixels
+    in any direction, in steps of one oversampling-pixel
+    (i.e. steps of width ``1/oversampling`` in the original co-ordinate system).
+
+    Args:
+        w_kernel (numpy.ndarray): Sampled W-kernel function.
+        aa_kernel_img (numpy.ndarray): Sampled image-domain anti-aliasing kernel.
+        conv_support (int): Convolution kernel support size.
+        oversampling (int): Oversampling ratio.
+
+    Returns:
+        dict: Dictionary mapping oversampling-pixel offsets to normalised gridding
+            kernels for the W-plane associated to the input W-kernel.
+            cache_size = ((oversampling // 2 * 2) + 1)**2
+    """
+    kernel_cache = dict()
+    workarea_size = w_kernel.array_size
+    workarea_centre = workarea_size // 2
+    cache_size = (oversampling // 2 * 2) + 1
+    oversampled_pixel_offsets = np.arange(cache_size) - oversampling // 2
+    # Multiply AA and W kernels on image domain
+    comb_kernel_img_array = w_kernel.array * aa_kernel_img
+    # FFT - transform kernel to UV domain
+    comb_kernel_array = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(comb_kernel_img_array)))
+    assert (conv_support * 2 + 1) * oversampling < workarea_size
+
+    # Generate kernel cache
+    for x_step in oversampled_pixel_offsets:
+        for y_step in oversampled_pixel_offsets:
+            xrange = slice(workarea_centre - conv_support * oversampling - x_step,
+                           workarea_centre + conv_support * oversampling - x_step + 1, oversampling)
+            yrange = slice(workarea_centre - conv_support * oversampling - y_step,
+                           workarea_centre + conv_support * oversampling - y_step + 1, oversampling)
+            w_kernel.array = comb_kernel_array[yrange, xrange]
+            # Store kernel on cache
+            kernel_cache[(x_step, y_step)] = deepcopy(w_kernel)
+
+    return kernel_cache
