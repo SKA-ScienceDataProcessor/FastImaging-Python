@@ -12,7 +12,7 @@ def test_zero_weighting():
     n_image = 8
     support = 1
     uvw = np.array([(-2., 0, 0),
-                   (-2., 0, 0)])
+                   (-2., 0, 0)]) / n_image
     # Real vis will be complex_, but we can substitute float_ for testing:
     vis_amplitude = 42.123
     vis = vis_amplitude * np.ones(len(uvw), dtype=np.float_)
@@ -23,9 +23,10 @@ def test_zero_weighting():
 
     # Exact gridding
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
-                                               support=support,
+                                               aa_support=support,
                                                image_size=n_image,
-                                               uvw=uvw,
+                                               cell_size=1,
+                                               uvw_lambda=uvw,
                                                vis=vis,
                                                vis_weights=vis_weights,
                                                exact=True,
@@ -35,9 +36,10 @@ def test_zero_weighting():
 
     # Kernel-cache
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
-                                               support=support,
+                                               aa_support=support,
                                                image_size=n_image,
-                                               uvw=uvw,
+                                               cell_size=1,
+                                               uvw_lambda=uvw,
                                                vis=vis,
                                                vis_weights=vis_weights,
                                                exact=False,
@@ -53,6 +55,7 @@ def test_natural_weighting():
     support = 1
     uvw = np.array([(-2., 0, 0),
                    (-2., 0, 0)])
+    uvw /= n_image
     # Real vis will be complex_, but we can substitute float_ for testing:
     vis = np.asarray([3. / 2., 3.])
     vis_weights = np.asarray([2. / 3., 1. / 3])
@@ -61,9 +64,10 @@ def test_natural_weighting():
     kernel_func = conv_funcs.Pillbox(0.5)
     # Exact gridding
     vis_grid, sampling_grid = convolve_to_grid(kernel_func,
-                                               support=support,
+                                               aa_support=support,
                                                image_size=n_image,
-                                               uvw=uvw,
+                                               cell_size=1,
+                                               uvw_lambda=uvw,
                                                vis=vis,
                                                vis_weights=vis_weights,
                                                exact=True,

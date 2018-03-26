@@ -85,7 +85,6 @@ def image_visibilities(
 
     vis_grid, sample_grid = convolve_to_grid(kernel_func,
                                              aa_support=kernel_support,
-                                             max_conv_support=max_wpconv_support,
                                              image_size=image_size_int,
                                              cell_size=cell_size.to(u.rad).value,
                                              uvw_lambda=uvw_lambda,
@@ -94,6 +93,7 @@ def image_visibilities(
                                              exact=kernel_exact,
                                              oversampling=kernel_oversampling,
                                              num_wplanes=num_wplanes,
+                                             max_conv_support=max_wpconv_support,
                                              progress_bar=progress_bar
                                              )
 

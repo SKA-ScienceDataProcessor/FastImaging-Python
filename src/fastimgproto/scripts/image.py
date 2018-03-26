@@ -54,8 +54,8 @@ def cli(config_json, in_vis, out_img):
                                                 kernel_support=kernel_support,
                                                 kernel_exact=True,
                                                 kernel_oversampling=None,
-                                                num_wplanes=64,
-                                                wkernel_maxsupport=20,
+                                                num_wplanes=0,
+                                                max_wpconv_support=0,
                                                 progress_bar=progress_bar)
 
     np.savez(out_img, image=image, beam=beam)

@@ -169,16 +169,17 @@ def test_oversampled_gridding():
     uvw = np.array([(1.0, 0.0, 0.0),
                    (1.3, 0.0, 0.0),
                    (.01, -1.32, 0.0),
-                   ])
+                   ]) / n_image
 
     vis = np.ones(len(uvw), dtype=np.float_)
     vis_weights=np.ones_like(vis)
     kernel_func = conv_funcs.Triangle(2.0)
 
     vis_grid, sample_grid = convolve_to_grid(kernel_func,
-                               support=support,
+                               aa_support=support,
                                image_size=n_image,
-                               uvw=uvw,
+                               cell_size=1,
+                               uvw_lambda=uvw,
                                vis=vis,
                                vis_weights=vis_weights,
                                exact=False,

@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 def convolve_to_grid(kernel_func,
                      aa_support,
-                     max_conv_support,
                      image_size,
                      cell_size,
                      uvw_lambda,
@@ -25,6 +24,7 @@ def convolve_to_grid(kernel_func,
                      exact=True,
                      oversampling=0,
                      num_wplanes=0,
+                     max_conv_support=0,
                      raise_bounds=False,
                      progress_bar=None):
     """
