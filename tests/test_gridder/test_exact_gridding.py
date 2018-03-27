@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from future.utils import raise_
 
 import fastimgproto.gridder.conv_funcs as conv_funcs
 from fastimgproto.gridder.gridder import convolve_to_grid
