@@ -130,20 +130,21 @@ def image_visibilities(
                                              progress_bar=progress_bar
                                              )
 
+    # Perform FFT step
     image = np.real(fft_to_image_plane(vis_grid))
     beam = np.real(fft_to_image_plane(sample_grid))
 
     # Generate gridding correction kernel
     if hankel_opt > 0:
         scaled_image_size = image_size_int * hankel_opt
-        gcf_array_scaled = ImgDomKernel(kernel_func, scaled_image_size, normalize=False, radial_line=False,
-                                      oversampling=None, scale=None, analytic_gcf=analytic_gcf).array
+        gcf_array_scaled = ImgDomKernel(kernel_func, scaled_image_size, oversampling=None, normalize=False,
+                                        radial_line=False, analytic_gcf=analytic_gcf).array
         image_slice = slice((scaled_image_size // 2) - (scaled_image_size // (2 * hankel_opt)),
                             (scaled_image_size // 2) + (scaled_image_size // (2 * hankel_opt)))
         gcf_array = gcf_array_scaled[image_slice, image_slice]
     else:
-        gcf_array = ImgDomKernel(kernel_func, image_size_int, normalize=False, radial_line=False,
-                                      oversampling=None, scale=None, analytic_gcf=analytic_gcf).array
+        gcf_array = ImgDomKernel(kernel_func, image_size_int, oversampling=None, normalize=False, radial_line=False,
+                                 analytic_gcf=analytic_gcf).array
 
     # Normalization factor:
     # We correct for the FFT scale factor of 1/image_size**2 by dividing by the image-domain AA-kernel
@@ -155,7 +156,10 @@ def image_visibilities(
     if analytic_gcf is True:
         total_sample_weight = np.real(sample_grid.sum()) / (image_size_int*image_size_int)
     else:
-        total_sample_weight = np.real(sample_grid.sum())
+        if hankel_opt > 0:
+            total_sample_weight = np.real(sample_grid.sum()) * pow(2, hankel_opt)
+        else:
+            total_sample_weight = np.real(sample_grid.sum())
 
     if total_sample_weight != 0:
         beam /= total_sample_weight

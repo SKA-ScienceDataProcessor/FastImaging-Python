@@ -154,9 +154,9 @@ def convolve_to_grid(kernel_func,
         if oversampling > 2:
             oversampling = (oversampling // 2) * 2
 
-    # Sort uvw lambda data by increasing w-value
+    # Sort uvw lambda data by increasing absolute value of w-lambda
     if num_wplanes > 0:
-        sort_arg = w_lambda.argsort()
+        sort_arg = np.abs(w_lambda).argsort()
         w_lambda = w_lambda[sort_arg]
         uv = uv[sort_arg]
         vis = vis[sort_arg]
@@ -202,9 +202,10 @@ def convolve_to_grid(kernel_func,
                 end = int(min((idx + 1) * plane_size, num_gvis))
                 indexes = good_vis_idx[begin:end]
                 if wplanes_median is True:
-                    w_avg_values[idx] = np.median(w_lambda[indexes])
+                    w_avg_values[idx] = np.median(np.abs(w_lambda[indexes]))
                 else:
-                    w_avg_values[idx] = np.average(w_lambda[indexes])
+                    w_avg_values[idx] = np.average(np.abs(w_lambda[indexes]))
+
                 w_planes_idx[indexes] = idx
                 if end >= num_gvis:
                     break
@@ -280,6 +281,9 @@ def convolve_to_grid(kernel_func,
         else:
             if num_wplanes > 0:
                 normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])]
+                # If w is negative, we must use the conjugate kernel
+                if w_lambda[idx] < 0:
+                    normed_kernel_array = np.conj(normed_kernel_array)
             else:
                 normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])].array
 
@@ -462,8 +466,9 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         kernel_centre = max_kernel_size // 2
         x, y = np.meshgrid(range(max_kernel_size + 1), range(max_kernel_size + 1))
         r = np.sqrt((x - kernel_centre) ** 2 + (y - kernel_centre) ** 2)
-        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2) * hankel_opt), 1 / (np.sqrt(2) * hankel_opt)), comb_kernel_radius, copy=False,
-                     kind="cubic", bounds_error=False, fill_value=0.0, assume_sorted=True)
+        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2) * hankel_opt), 1 / (np.sqrt(2) * hankel_opt)),
+                     comb_kernel_radius, copy=False, kind="cubic", bounds_error=False, fill_value=0.0,
+                     assume_sorted=True)
         comb_kernel_array = f(r.flat).reshape(r.shape)
 
     xrange = slice(kernel_centre - conv_support * oversampling,
