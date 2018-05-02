@@ -13,7 +13,7 @@ from tqdm import tqdm as Tqdm
 
 import fastimgproto.imager as imager
 import fastimgproto.visibility as visibility
-from fastimgproto.gridder.conv_funcs import GaussianSinc
+from fastimgproto.gridder.conv_funcs import PSWF
 from fastimgproto.sourcefind.image import SourceFindImage
 
 from .config import ConfigKeys, default_config_path
@@ -115,7 +115,7 @@ def main(uvw_lambda,
 
     # Kernel generation - might configure this via config-file in future.
     kernel_support = 3
-    kernel_func = GaussianSinc(trunc=kernel_support)
+    kernel_func = PSWF(kernel_support)
     logger.info("Imaging residual visibilities")
     with Tqdm() as progress_bar:
         image, beam = imager.image_visibilities(residual_vis,
@@ -126,9 +126,13 @@ def main(uvw_lambda,
                                                 kernel_func=kernel_func,
                                                 kernel_support=kernel_support,
                                                 kernel_exact=False,
-                                                kernel_oversampling=8,
-                                                num_wplanes=16,
-                                                max_wpconv_support=20,
+                                                kernel_oversampling=1,
+                                                num_wplanes=8,
+                                                wplanes_median=False,
+                                                max_wpconv_support=10,
+                                                analytic_gcf=True,
+                                                hankel_opt=0,
+                                                undersampling_opt=1,
                                                 progress_bar=progress_bar)
     logger.info("Running sourcefinder on image")
     sfimage = SourceFindImage(data=np.real(image),

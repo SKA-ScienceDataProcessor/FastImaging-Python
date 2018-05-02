@@ -38,10 +38,15 @@ class ConvFuncBase(object):
         """The convolution function to be evaluated and truncated"""
         pass
 
+    @abstractmethod
+    def gcf(self, radius):
+        """The gridding correction function"""
+        pass
+
     def __call__(self, radius_in_pix):
         radius_in_pix = np.atleast_1d(radius_in_pix)
         output = np.zeros_like(radius_in_pix, dtype=np.float)
-        inside_trunc_radius = np.fabs(radius_in_pix) < self.trunc
+        inside_trunc_radius = ~(np.fabs(radius_in_pix) > self.trunc)
         output[inside_trunc_radius] = self.f(radius_in_pix[inside_trunc_radius])
         return output
 
@@ -72,6 +77,10 @@ class Triangle(ConvFuncBase):
             np.zeros_like(radius_in_pix)
         )
 
+    def gcf(self, radius):
+        assert False
+        return 0
+
 
 class Pillbox(ConvFuncBase):
     """
@@ -96,17 +105,34 @@ class Pillbox(ConvFuncBase):
     def f(self, radius_in_pix):
         return np.where(np.fabs(radius_in_pix) < self.half_base_width, 1.0, 0.0)
 
+    def gcf(self, radius):
+        assert False
+        return 0
+
 
 class Sinc(ConvFuncBase):
     """
     Sinc function (with truncation).
+    Args:
+        w (float): Width normalization of the sinc. Default = 1.55
     """
 
-    def __init__(self, trunc):
+    def __init__(self, trunc, w=1.55):
         super(Sinc, self).__init__(trunc)
+        self.w = w
 
     def f(self, radius_in_pix):
-        return np.sinc(radius_in_pix)
+        return np.sinc(radius_in_pix / self.w)
+
+    def gcf(self, radius):
+        """
+        Args:
+            radius: normalized radius (between -1 and 1).
+
+        Returns the 1D grid correction function (gcf)
+        """
+        nu = radius
+        return np.where(np.fabs(nu) < 1.0 * self.w, 1.0, 0.0)
 
 
 class Gaussian(ConvFuncBase):
@@ -132,6 +158,16 @@ class Gaussian(ConvFuncBase):
 
     def f(self, radius_in_pix):
         radius_div_w = radius_in_pix / self.w
+        return np.exp(-1. * (radius_div_w * radius_div_w))
+
+    def gcf(self, radius):
+        """
+        Args:
+            radius: normalized radius (between -1 and 1).
+
+        Returns the 1D grid correction function (gcf)
+        """
+        radius_div_w = radius * np.pi / (self.w * 2)
         return np.exp(-1. * (radius_div_w * radius_div_w))
 
 
@@ -164,3 +200,96 @@ class GaussianSinc(ConvFuncBase):
             np.exp(-1. * (radius_div_w1 * radius_div_w1)) *
             np.sinc(radius_in_pix / self.w2)
         )
+
+    def gcf(self, radius):
+        assert False
+        return 0
+
+
+class PSWF(ConvFuncBase):
+    """
+    Compute the 1D prolate spheroidal anti-aliasing function
+
+    The kernel is to be used in gridding visibility data onto a grid.
+    The gridding correction function (gcf) is used to correct the image for
+    decorrelation due to gridding.
+
+    2D Prolate spheroidal angular function is separable
+
+    Args:
+        trunc: truncation radius.
+    """
+
+    def __init__(self, trunc):
+        super(PSWF, self).__init__(trunc)
+
+    def f(self, radius_in_pix):
+        """
+        Args:
+            radius: radius in pixels
+
+        Returns the 1D convolving kernel
+        """
+        nu = radius_in_pix / self.trunc
+        # Compute the gridding function
+        kernel1d = self.__grdsf(nu) * (1 - nu ** 2)
+        return kernel1d
+
+    def gcf(self, radius):
+        """
+        Args:
+            radius: normalized radius (between -1 and 1).
+
+        Returns the 1D grid correction function (gcf)
+        """
+        nu = radius
+        # Compute the grid correction function:
+        gcf1d = self.__grdsf(nu)
+        return gcf1d
+
+    def __grdsf(self, nu):
+        """Calculate PSWF using an old SDE routine re-written in Python
+        Find Spheroidal function with M = 6, alpha = 1 using the rational
+        approximations discussed by Fred Schwab in 'Indirect Imaging'.
+        This routine was checked against Fred's SPHFN routine, and agreed
+        to about the 7th significant digit.
+        The gridding function is (1-NU**2)*GRDSF(NU) where NU is the distance
+        to the edge. The grid correction function is just 1/GRDSF(NU) where NU
+        is now the distance to the edge of the image.
+        Author: Tim Cornwell
+        """
+        p = np.array([[8.203343e-2, -3.644705e-1, 6.278660e-1, -5.335581e-1, 2.312756e-1],
+                         [4.028559e-3, -3.697768e-2, 1.021332e-1, -1.201436e-1, 6.412774e-2]])
+        q = np.array([[1.0000000e0, 8.212018e-1, 2.078043e-1],
+                         [1.0000000e0, 9.599102e-1, 2.918724e-1]])
+
+        _, n_p = p.shape
+        _, n_q = q.shape
+
+        nu = np.abs(nu)
+
+        nuend = np.zeros_like(nu)
+        part = np.zeros(len(nu), dtype='int')
+        part[(nu >= 0.0) & (nu < 0.75)] = 0
+        part[(nu >= 0.75) & (nu <= 1.0)] = 1
+        nuend[(nu >= 0.0) & (nu < 0.75)] = 0.75
+        nuend[(nu >= 0.75) & (nu <= 1.0)] = 1.0
+
+        delnusq = nu ** 2 - nuend ** 2
+
+        top = p[part, 0]
+        for k in range(1, n_p):
+            top += p[part, k] * np.power(delnusq, k)
+
+        bot = q[part, 0]
+        for k in range(1, n_q):
+            bot += q[part, k] * np.power(delnusq, k)
+
+        grdsf = np.zeros_like(nu)
+        ok = (bot > 0.0)
+        grdsf[ok] = top[ok] / bot[ok]
+        ok = np.abs(nu > 1.0)
+        grdsf[ok] = 0.0
+
+        # Return the grid correction function
+        return grdsf

@@ -5,26 +5,58 @@ import logging
 
 import numpy as np
 import tqdm
-from copy import deepcopy
+from scipy.special import jn
+from scipy.interpolate import interp1d
 
 from fastimgproto.gridder.wkernel_generation import WKernel
-from fastimgproto.gridder.kernel_generation import Kernel
+from fastimgproto.gridder.kernel_generation import Kernel, ImgDomKernel
 from fastimgproto.utils import reset_progress_bar
 
 logger = logging.getLogger(__name__)
 
 
+def construct_dht_matrix(N, r, k):
+    rn = np.concatenate(((r[1:(N)] + r[0:(N-1)]) / 2, [r[N-1]]))
+    kn = np.empty_like(k)
+    kn[1:] = 2 * np.pi / k[1:]
+    kn[0] = 0
+    I = np.outer(kn, rn) * jn(1, np.outer(k, rn))
+    I[0, :] = np.pi*rn*rn
+    I[:, 1:N] = I[:, 1:N] - I[:, 0:(N - 1)]
+    return I
+
+
+def dht(f):
+    """
+    Hankel Transform of order 0.
+    Args:
+        f (numpy.ndarray): Input vector be transformed.
+    Returns:
+        numpy.ndarray: Hankel transform output array.
+    """
+    N = f.shape[0]
+    r = np.arange(0, N)
+    k = (np.pi / N) * r
+    I = construct_dht_matrix(N, r, k)
+    return np.tensordot(I, f, axes=([1], [0]))
+
+
 def convolve_to_grid(kernel_func,
                      aa_support,
                      image_size,
-                     cell_size,
-                     uvw_lambda,
+                     uv,
                      vis,
                      vis_weights,
                      exact=True,
-                     oversampling=0,
-                     num_wplanes=0,
-                     max_conv_support=0,
+                     oversampling=None,
+                     num_wplanes=None,
+                     cell_size=None,
+                     w_lambda=None,
+                     wplanes_median=False,
+                     max_wpconv_support=0,
+                     analytic_gcf=False,
+                     hankel_opt=0,
+                     undersampling_opt=0,
                      raise_bounds=False,
                      progress_bar=None):
     """
@@ -62,9 +94,8 @@ def convolve_to_grid(kernel_func,
         image_size (int): Width of the image in pixels. NB we assume
             the pixel `[image_size//2,image_size//2]` corresponds to the origin
             in UV-space.
-
-        uvw (numpy.ndarray): UVW-coordinates of visibilities.
-            2d array of `float_`, shape: `(n_vis, 3)`.
+        uv (numpy.ndarray): UV-coordinates of visibilities.
+            2d array of `float_`, shape: `(n_vis, 2)`.
             assumed ordering is u-then-v, i.e. `u, v = uv[idx]`
         vis (numpy.ndarray): Complex visibilities.
             1d array, shape: `(n_vis,)`.
@@ -75,6 +106,24 @@ def convolve_to_grid(kernel_func,
             Larger values give a finer-sampled set of pre-cached kernels.
         num_wplanes (int): Number of planes for W-Projection. Set to zero or
             None to disable W-projection.
+        cell_size (astropy.units.Quantity): Angular-width of a synthesized pixel
+            in the image to be created, e.g. ``3.5 * u.arcsecond``.
+        w_lambda (numpy.ndarray): W-coordinate of visibilities. Units are
+            multiples of wavelength. 1d array of `float_`, shape: `(n_vis, 1)`.
+        wplanes_median (bool): Use median to compute w-planes, otherwise use mean.
+        max_wpconv_support (int): Defines the maximum 'radius' of the bounding box
+            within which convolution takes place when W-Projection is used.
+            `Box width in pixels = 2*support+1`.
+        analytic_gcf (bool): Compute approximation of image-domain kernel from
+            analytic expression of DFT.
+        hankel_opt (int): Use Hankel Transform (HT) optimization for quicker
+            execution of W-Projection. Set zero or non-zero value to disable or
+            enable HT. Large non-zero values increase HT accuracy, by using an
+            extended W-kernel workarea size.
+        undersampling_opt (int): Use W-kernel undersampling for faster kernel
+            generation. Set 0 to disable undersampling and 1 to enable maximum
+            undersampling. Reduce the level of undersampling by increasing the
+            integer value.
         raise_bounds (bool): Raise an exception if any of the UV
             samples lie outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
@@ -88,11 +137,15 @@ def convolve_to_grid(kernel_func,
             Note numpy style index-order, i.e. access like ``vis_grid[v,u]``.
 
     """
+    if oversampling is None:
+        oversampling = 1
     if num_wplanes is None:
         num_wplanes = 0
     if num_wplanes > 0:
         assert exact is False
-    assert len(uvw_lambda) == len(vis)
+    if w_lambda is not None:
+        assert len(w_lambda) == len(vis)
+    assert len(uv) == len(vis)
 
     # Check for sensible combinations of exact / oversampling parameter-values:
     if not exact:
@@ -102,29 +155,25 @@ def convolve_to_grid(kernel_func,
             oversampling = (oversampling // 2) * 2
 
     # Sort uvw lambda data by increasing w-value
-    sort_arg = uvw_lambda[:, 2].argsort()
-    uvw_lambda = uvw_lambda[sort_arg]
-    vis = vis[sort_arg]
-    vis_weights = vis_weights[sort_arg]
-
-    # Size of a UV-grid pixel, in multiples of wavelength (lambda):
-    uv = uvw_lambda[:, :2]
-    w = uvw_lambda[:, 2]
-    grid_pixel_width_lambda = 1.0 / (cell_size * image_size)
-    uv_in_pixels = (uv / grid_pixel_width_lambda)
+    if num_wplanes > 0:
+        sort_arg = w_lambda.argsort()
+        w_lambda = w_lambda[sort_arg]
+        uv = uv[sort_arg]
+        vis = vis[sort_arg]
+        vis_weights = vis_weights[sort_arg]
 
     # Calculate nearest integer pixel co-ords ('rounded positions')
-    uv_rounded = np.around(uv_in_pixels)
+    uv_rounded = np.around(uv)
     # Calculate sub-pixel vector from rounded-to-precise positions
     # ('fractional coords'):
-    uv_frac = uv_in_pixels - uv_rounded
+    uv_frac = uv - uv_rounded
     uv_rounded_int = uv_rounded.astype(np.int)
     # Now get the corresponding grid-pixel indices by adding the origin offset
     kernel_centre_on_grid = uv_rounded_int + (image_size // 2, image_size // 2)
 
     # Set convolution kernel support for gridding
     if num_wplanes > 0:
-        conv_support = max_conv_support
+        conv_support = max_wpconv_support
     else:
         conv_support = aa_support
 
@@ -146,47 +195,50 @@ def convolve_to_grid(kernel_func,
             # Define w-planes
             plane_size = np.ceil(num_gvis / num_wplanes)
             w_avg_values = np.empty(num_wplanes)
-            w_planes_idx = np.empty_like(w)
+            w_planes_idx = np.empty_like(w_lambda, dtype=int)
 
             for idx in range(0, num_wplanes):
-                begin = int(np.round(idx * plane_size))
-                end = int(min(np.round((idx + 1) * plane_size), num_gvis))
+                begin = int(idx * plane_size)
+                end = int(min((idx + 1) * plane_size, num_gvis))
                 indexes = good_vis_idx[begin:end]
-                w_avg_values[idx] = np.average(w[indexes])
+                if wplanes_median is True:
+                    w_avg_values[idx] = np.median(w_lambda[indexes])
+                else:
+                    w_avg_values[idx] = np.average(w_lambda[indexes])
                 w_planes_idx[indexes] = idx
                 if end >= num_gvis:
                     break
 
             # Calculate kernel working area size
-            scale = 1
-            if (max_conv_support * 2 + 1) * oversampling >= image_size:
-                while (image_size * scale) <= (max_conv_support * 2 + 1) * oversampling:
-                    scale *= 2
-                workarea_size = image_size * scale
-                scale = 1.0 / scale
-            else:
-                while (image_size // (scale * 2)) > (max_conv_support * 2 + 1) * oversampling:
-                    scale *= 2
-                workarea_size = image_size // scale
+            undersampling_scale = 1
+            workarea_size = image_size * oversampling
 
-            workarea_centre = workarea_size // 2
-            aa_kernel_array = np.zeros((workarea_size, workarea_size), dtype=np.complex)
-            # Generate oversampled AA kernel
-            aa_kernel_oversampled = Kernel(kernel_func=kernel_func, support=aa_support,
-                                           offset=(0, 0),
-                                           oversampling=oversampling,
-                                           normalize=True
-                                           )
-            # Copy AA kernel to working area
-            aa_support = aa_kernel_oversampled.array_size // 2
-            xrange = slice(workarea_centre - aa_support, workarea_centre + aa_support + 1)
-            yrange = slice(workarea_centre - aa_support, workarea_centre + aa_support + 1)
-            aa_kernel_array[yrange, xrange] = aa_kernel_oversampled.array
-            # iFFT - transform AA kernel to image domain
-            kernel_img_array = np.real(np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(aa_kernel_array))))
+            # Kernel undersampling optimization for speedup
+            if undersampling_opt > 0:
+                while (image_size // (undersampling_scale * 2 * undersampling_opt)) > (max_wpconv_support * 2 + 1):
+                    undersampling_scale *= 2
+                workarea_size = workarea_size // undersampling_scale
+
+            # Check required conditions on the used size
+            assert (workarea_size % undersampling_scale) == 0
+            assert ((workarea_size // undersampling_scale) % 2) == 0
+
+            if hankel_opt > 0:
+                radial_line = True
+                workarea_size = workarea_size * hankel_opt
+                if undersampling_scale > 1:
+                    undersampling_scale = undersampling_scale // 2
+                    workarea_size = workarea_size * 2
+            else:
+                radial_line = False
+
+            # Compute image-domain AA kernel
+            aa_kernel_img_array = ImgDomKernel(kernel_func, workarea_size, oversampling=oversampling,
+                                               normalize=False, radial_line=radial_line,
+                                               analytic_gcf=analytic_gcf).array
 
         else:
-            # Compute AA kernel cache
+            # Compute oversampled AA kernel cache
             kernel_cache = populate_kernel_cache(kernel_func, aa_support, oversampling)
 
     # Create gridding arrays
@@ -213,8 +265,12 @@ def convolve_to_grid(kernel_func,
                 wplane = w_planes_idx[idx]
                 # Generate W-kernel
                 w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
-                                   scale=scale*oversampling)
-                kernel_cache = generate_kernel_cache_wprojection(w_kernel, kernel_img_array, conv_support, oversampling)
+                                   oversampling=oversampling, scale=undersampling_scale, normalize=False,
+                                   radial_line=radial_line)
+
+                kernel_cache, conv_support = \
+                    generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
+                                                      max_wpconv_support, oversampling, hankel_opt)
 
         # Integer positions of the kernel
         gc_x, gc_y = kernel_centre_on_grid[idx]
@@ -222,7 +278,10 @@ def convolve_to_grid(kernel_func,
             normed_kernel_array = Kernel(kernel_func=kernel_func, support=aa_support, offset=uv_frac[idx],
                                          normalize=True).array
         else:
-            normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])].array
+            if num_wplanes > 0:
+                normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])]
+            else:
+                normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])].array
 
         # Generate a convolution kernel with the precise offset required:
         xrange = slice(gc_x - conv_support, gc_x + conv_support + 1)
@@ -357,7 +416,7 @@ def populate_kernel_cache(kernel_func, support, oversampling):
     return cache
 
 
-def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, conv_support, oversampling):
+def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, conv_support, oversampling, hankel_opt=0):
     """
     Generate a cache of kernels at oversampled-pixel offsets for W-Projection.
 
@@ -368,34 +427,70 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, conv_support, ove
     Args:
         w_kernel (numpy.ndarray): Sampled W-kernel function.
         aa_kernel_img (numpy.ndarray): Sampled image-domain anti-aliasing kernel.
+        workarea_size (int): Workarea size for kernel generation.
         conv_support (int): Convolution kernel support size.
         oversampling (int): Oversampling ratio.
+        hankel_opt (int): Use hankel transform optimisation.
 
     Returns:
         dict: Dictionary mapping oversampling-pixel offsets to normalised gridding
             kernels for the W-plane associated to the input W-kernel.
             cache_size = ((oversampling // 2 * 2) + 1)**2
     """
+    if oversampling > 1:
+        assert (oversampling % 2) == 0
+
     kernel_cache = dict()
-    workarea_size = w_kernel.array_size
     workarea_centre = workarea_size // 2
     cache_size = (oversampling // 2 * 2) + 1
     oversampled_pixel_offsets = np.arange(cache_size) - oversampling // 2
-    # Multiply AA and W kernels on image domain
-    comb_kernel_img_array = w_kernel.array * aa_kernel_img
-    # FFT - transform kernel to UV domain
-    comb_kernel_array = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(comb_kernel_img_array)))
+
     assert (conv_support * 2 + 1) * oversampling < workarea_size
+
+    if hankel_opt == 0:
+        kernel_centre = workarea_centre
+        # Multiply AA and W kernels on image domain
+        comb_kernel_img_array = w_kernel.array * aa_kernel_img
+        # FFT - transform kernel to UV domain
+        comb_kernel_array = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(comb_kernel_img_array)))
+    else:
+        ### Alternative method using Hankel transform ###
+        comb_kernel_img_radius = w_kernel.array * aa_kernel_img
+        comb_kernel_radius = dht(comb_kernel_img_radius)
+
+        max_kernel_size = (conv_support * 2 + 1 + 1) * oversampling
+        kernel_centre = max_kernel_size // 2
+        x, y = np.meshgrid(range(max_kernel_size + 1), range(max_kernel_size + 1))
+        r = np.sqrt((x - kernel_centre) ** 2 + (y - kernel_centre) ** 2)
+        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2) * hankel_opt), 1 / (np.sqrt(2) * hankel_opt)), comb_kernel_radius, copy=False,
+                     kind="cubic", bounds_error=False, fill_value=0.0, assume_sorted=True)
+        comb_kernel_array = f(r.flat).reshape(r.shape)
+
+    xrange = slice(kernel_centre - conv_support * oversampling,
+                   kernel_centre + conv_support * oversampling + 1, oversampling)
+    yrange = slice(kernel_centre - conv_support * oversampling,
+                   kernel_centre + conv_support * oversampling + 1, oversampling)
+    tmp_array = comb_kernel_array[yrange, xrange]
+
+    min_value = np.abs(tmp_array[conv_support, conv_support]) * 0.01
+    for pos in range(0, conv_support + 1):
+        if np.abs(tmp_array[conv_support, pos]) > min_value:
+            break
+    trunc_conv_support = max(1, conv_support - pos)
+    assert trunc_conv_support <= conv_support
 
     # Generate kernel cache
     for x_step in oversampled_pixel_offsets:
         for y_step in oversampled_pixel_offsets:
-            xrange = slice(workarea_centre - conv_support * oversampling - x_step,
-                           workarea_centre + conv_support * oversampling - x_step + 1, oversampling)
-            yrange = slice(workarea_centre - conv_support * oversampling - y_step,
-                           workarea_centre + conv_support * oversampling - y_step + 1, oversampling)
-            w_kernel.array = comb_kernel_array[yrange, xrange]
-            # Store kernel on cache
-            kernel_cache[(x_step, y_step)] = deepcopy(w_kernel)
+            xrange = slice(kernel_centre - trunc_conv_support * oversampling - x_step,
+                           kernel_centre + trunc_conv_support * oversampling - x_step + 1, oversampling)
+            yrange = slice(kernel_centre - trunc_conv_support * oversampling - y_step,
+                           kernel_centre + trunc_conv_support * oversampling - y_step + 1, oversampling)
+            conv_kernel_array = comb_kernel_array[yrange, xrange]
+            array_sum = np.real(conv_kernel_array.sum())
+            conv_kernel_array = conv_kernel_array / array_sum
 
-    return kernel_cache
+            # Store kernel on cache
+            kernel_cache[(x_step, y_step)] = conv_kernel_array
+
+    return kernel_cache, trunc_conv_support

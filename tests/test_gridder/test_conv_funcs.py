@@ -51,7 +51,7 @@ def test_tophat_func():
 
 
 def test_sinc():
-    sinc = conv_funcs.Sinc(trunc=3.0)
+    sinc = conv_funcs.Sinc(trunc=3.0, w=1.0)
     io_pairs = np.array([
         [0.0, 1.0],
         [0.5, 1. / (0.5 * np.pi)],
