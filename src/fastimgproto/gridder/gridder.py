@@ -117,9 +117,9 @@ def convolve_to_grid(kernel_func,
         analytic_gcf (bool): Compute approximation of image-domain kernel from
             analytic expression of DFT.
         hankel_opt (int): Use Hankel Transform (HT) optimization for quicker
-            execution of W-Projection. Set zero or non-zero value to disable or
-            enable HT. Large non-zero values increase HT accuracy, by using an
-            extended W-kernel workarea size.
+            execution of W-Projection. Set 0 to disable HT and 1 or 2 to enable HT.
+            The larger non-zero value increases HT accuracy, by using an extended
+            W-kernel workarea size.
         undersampling_opt (int): Use W-kernel undersampling for faster kernel
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
@@ -218,11 +218,11 @@ def convolve_to_grid(kernel_func,
             if undersampling_opt > 0:
                 while (image_size // (undersampling_scale * 2 * undersampling_opt)) > (max_wpconv_support * 2 + 1):
                     undersampling_scale *= 2
+                # Check required conditions for the used size
+                assert (workarea_size % undersampling_scale) == 0
+                assert ((workarea_size // undersampling_scale) % 2) == 0
+                # Compute workarea size
                 workarea_size = workarea_size // undersampling_scale
-
-            # Check required conditions on the used size
-            assert (workarea_size % undersampling_scale) == 0
-            assert ((workarea_size // undersampling_scale) % 2) == 0
 
             if hankel_opt > 0:
                 radial_line = True

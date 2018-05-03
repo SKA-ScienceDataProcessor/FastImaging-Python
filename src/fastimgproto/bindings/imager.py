@@ -9,6 +9,7 @@ class CppKernelFuncs(object):
     """
     A simple namespace / enum structure for listing the available kernels.
     """
+    pswf = 'pswf'
     gauss = 'gauss'
     gauss_sinc = 'gauss_sinc'
     sinc = 'sinc'
@@ -18,6 +19,7 @@ class CppKernelFuncs(object):
 
 # Mapping to equivalent implementation in pure Python
 PYTHON_KERNELS = {
+    CppKernelFuncs.pswf: kfuncs.PSWF,
     CppKernelFuncs.gauss: kfuncs.Gaussian,
     CppKernelFuncs.gauss_sinc: kfuncs.GaussianSinc,
     CppKernelFuncs.sinc: kfuncs.Sinc,
@@ -30,6 +32,7 @@ if CPP_BINDINGS_PRESENT:
 
     # Mapping from name to stp function:
     CPP_KERNELS = {
+        CppKernelFuncs.pswf: stp_python.KernelFunction.PSWF,
         CppKernelFuncs.gauss_sinc: stp_python.KernelFunction.GaussianSinc,
         CppKernelFuncs.gauss: stp_python.KernelFunction.Gaussian,
         CppKernelFuncs.sinc: stp_python.KernelFunction.Sinc,
@@ -48,7 +51,12 @@ def cpp_image_visibilities(vis,
                            kernel_support=3,
                            kernel_exact=True,
                            kernel_oversampling=0,
-                           normalize=True):
+                           num_wplanes=0,
+                           wplanes_median=False,
+                           max_wpconv_support=0,
+                           analytic_gcf=False,
+                           hankel_opt=0,
+                           undersampling_opt=0):
     """
     Convenience wrapper over _cpp_image_visibilities.
 
@@ -87,6 +95,22 @@ def cpp_image_visibilities(vis,
         kernel_oversampling (int): (Or None). Controls kernel-generation,
             see :func:`fastimgproto.gridder.gridder.convolve_to_grid` for
             details.
+        num_wplanes (int): Number of planes for W-Projection. Set zero or None
+            to disable W-projection.
+        wplanes_median (bool): Use median to compute w-planes, otherwise use mean.
+        max_wpconv_support (int): Defines the maximum 'radius' of the bounding box
+            within which convolution takes place when W-Projection is used.
+            `Box width in pixels = 2*support+1`.
+        analytic_gcf (bool): Compute approximation of image-domain kernel from
+            analytic expression of DFT.
+        hankel_opt (int): Use Hankel Transform (HT) optimization for quicker
+            execution of W-Projection. Set 0 to disable HT and 1 or 2 to enable HT.
+            The larger non-zero value increases HT accuracy, by using an extended
+            W-kernel workarea size.
+        undersampling_opt (int): Use W-kernel undersampling for faster kernel
+            generation. Set 0 to disable undersampling and 1 to enable maximum
+            undersampling. Reduce the level of undersampling by increasing the
+            integer value.
         normalize (bool): Whether or not the returned image and beam
             should be normalized such that the beam peaks at a value of
             1.0 Jansky. You normally want this to be true, but it may be
@@ -121,7 +145,12 @@ def cpp_image_visibilities(vis,
         int(kernel_support),
         kernel_exact,
         kernel_oversampling,
-        normalize,
+        num_wplanes,
+        wplanes_median,
+        max_wpconv_support,
+        analytic_gcf,
+        hankel_opt,
+        undersampling_opt
     )
 
     return image, beam

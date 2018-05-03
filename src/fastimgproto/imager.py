@@ -57,6 +57,7 @@ def image_visibilities(
             pre-cached kernels.
         num_wplanes (int): Number of planes for W-Projection. Set to zero or None
             to disable W-projection.
+        wplanes_median (bool): Use median to compute w-planes, otherwise use mean.
         max_wpconv_support (int): Defines the maximum 'radius' of the bounding box
             within which convolution takes place when W-Projection is used.
             `Box width in pixels = 2*support+1`.
