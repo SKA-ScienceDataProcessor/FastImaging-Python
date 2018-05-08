@@ -136,7 +136,7 @@ def image_visibilities(
     beam = np.real(fft_to_image_plane(sample_grid))
 
     # Generate gridding correction kernel
-    if hankel_opt > 0:
+    if num_wplanes > 0 and hankel_opt > 0:
         scaled_image_size = image_size_int * hankel_opt
         gcf_array_scaled = ImgDomKernel(kernel_func, scaled_image_size, oversampling=None, normalize=False,
                                         radial_line=False, analytic_gcf=analytic_gcf).array
