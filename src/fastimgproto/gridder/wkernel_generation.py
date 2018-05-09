@@ -29,8 +29,7 @@ class WKernel(object):
 
     """
 
-    def __init__(self, w_value, array_size, cell_size, oversampling=None, scale=None, normalize=False,
-                 radial_line=False):
+    def __init__(self, w_value, array_size, cell_size, oversampling=None, scale=None, radial_line=False):
 
         if scale is None:
             scale = 1
@@ -95,8 +94,3 @@ class WKernel(object):
                 else:
                     n = np.sqrt(1 - squared_radians)
                     self.array[x] = np.exp(-2 * np.pi * 1j * w_value * (n - 1)) / n
-
-        if normalize:
-            array_sum = np.real(self.array.sum())
-            if array_sum > 0.0:
-                self.array /= array_sum

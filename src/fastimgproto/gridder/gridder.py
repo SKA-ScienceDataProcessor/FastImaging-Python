@@ -266,8 +266,7 @@ def convolve_to_grid(kernel_func,
                 wplane = w_planes_idx[idx]
                 # Generate W-kernel
                 w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
-                                   oversampling=oversampling, scale=undersampling_scale, normalize=False,
-                                   radial_line=radial_line)
+                                   oversampling=oversampling, scale=undersampling_scale, radial_line=radial_line)
 
                 kernel_cache, conv_support = \
                     generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,

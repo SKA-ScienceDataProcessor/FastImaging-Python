@@ -154,13 +154,14 @@ class ImgDomKernel(object):
             kernel_img_1d[range(array_offset, array_offset+kernel_size)] = self.kernel_func.gcf(self.radius)
         else:
             # Distance from each pixel's sample position to kernel-centre position:
-            self.distance_vec = (np.arange(kernel_size, dtype=np.float_) - centre_idx) / oversampling
-            kernel_1d = np.zeros((array_size,), dtype=np.float)
-            kernel_1d[range(array_offset, array_offset + kernel_size)] = self.kernel_func(self.distance_vec)
+            self.distance_vec = (np.arange(kernel_size, dtype=np.float_) - centre_idx)
+            kernel_1d = self.kernel_func(self.distance_vec)
             array_sum = kernel_1d.sum()
             if array_sum > 0.0:
                 kernel_1d /= array_sum
-            kernel_img_1d = np.real(np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(kernel_1d))))
+            kernel_img_1d_aux = np.real(np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(kernel_1d))))
+            kernel_img_1d = np.zeros((array_size,), dtype=np.float)
+            kernel_img_1d[range(array_offset, array_offset + kernel_size)] = kernel_img_1d_aux
 
         if radial_line is False:
             # Multiply separable components to get the 2-d kernel:
