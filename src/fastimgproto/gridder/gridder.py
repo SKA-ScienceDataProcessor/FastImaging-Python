@@ -55,7 +55,7 @@ def convolve_to_grid(kernel_func,
                      wplanes_median=False,
                      max_wpconv_support=0,
                      analytic_gcf=False,
-                     hankel_opt=0,
+                     hankel_opt=False,
                      undersampling_opt=0,
                      raise_bounds=False,
                      progress_bar=None):
@@ -116,10 +116,8 @@ def convolve_to_grid(kernel_func,
             `Box width in pixels = 2*support+1`.
         analytic_gcf (bool): Compute approximation of image-domain kernel from
             analytic expression of DFT.
-        hankel_opt (int): Use Hankel Transform (HT) optimization for quicker
-            execution of W-Projection. Set 0 to disable HT and 1 or 2 to enable HT.
-            The larger non-zero value increases HT accuracy, by using an extended
-            W-kernel workarea size.
+        hankel_opt (bool): Use Hankel Transform (HT) optimization for quicker
+            execution of W-Projection.
         undersampling_opt (int): Use W-kernel undersampling for faster kernel
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
@@ -224,9 +222,8 @@ def convolve_to_grid(kernel_func,
                 # Compute workarea size
                 workarea_size = workarea_size // undersampling_scale
 
-            if hankel_opt > 0:
+            if hankel_opt is True:
                 radial_line = True
-                workarea_size = workarea_size * hankel_opt
                 if undersampling_scale > 1:
                     undersampling_scale = undersampling_scale // 2
                     workarea_size = workarea_size * 2
@@ -266,7 +263,8 @@ def convolve_to_grid(kernel_func,
                 wplane = w_planes_idx[idx]
                 # Generate W-kernel
                 w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
-                                   oversampling=oversampling, scale=undersampling_scale, radial_line=radial_line)
+                                   oversampling=oversampling, scale=undersampling_scale,
+                                   radial_line=radial_line)
 
                 kernel_cache, conv_support = \
                     generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
@@ -419,7 +417,7 @@ def populate_kernel_cache(kernel_func, support, oversampling):
     return cache
 
 
-def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, conv_support, oversampling, hankel_opt=0):
+def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, conv_support, oversampling, hankel_opt=False):
     """
     Generate a cache of kernels at oversampled-pixel offsets for W-Projection.
 
@@ -433,7 +431,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         workarea_size (int): Workarea size for kernel generation.
         conv_support (int): Convolution kernel support size.
         oversampling (int): Oversampling ratio.
-        hankel_opt (int): Use hankel transform optimisation.
+        hankel_opt (bool): Use hankel transform optimisation.
 
     Returns:
         dict: Dictionary mapping oversampling-pixel offsets to normalised gridding
@@ -450,7 +448,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
 
     assert (conv_support * 2 + 1) * oversampling < workarea_size
 
-    if hankel_opt == 0:
+    if hankel_opt is False:
         kernel_centre = workarea_centre
         # Multiply AA and W kernels on image domain
         comb_kernel_img_array = w_kernel.array * aa_kernel_img
@@ -465,7 +463,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         kernel_centre = max_kernel_size // 2
         x, y = np.meshgrid(range(max_kernel_size + 1), range(max_kernel_size + 1))
         r = np.sqrt((x - kernel_centre) ** 2 + (y - kernel_centre) ** 2)
-        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2) * hankel_opt), 1 / (np.sqrt(2) * hankel_opt)),
+        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2)), 1 / (np.sqrt(2))),
                      comb_kernel_radius, copy=False, kind="cubic", bounds_error=False, fill_value=0.0,
                      assume_sorted=True)
         comb_kernel_array = f(r.flat).reshape(r.shape)

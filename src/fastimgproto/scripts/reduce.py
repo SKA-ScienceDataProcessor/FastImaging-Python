@@ -131,7 +131,7 @@ def main(uvw_lambda,
                                                 wplanes_median=False,
                                                 max_wpconv_support=10,
                                                 analytic_gcf=True,
-                                                hankel_opt=0,
+                                                hankel_opt=True,
                                                 undersampling_opt=1,
                                                 progress_bar=progress_bar)
     logger.info("Running sourcefinder on image")

@@ -63,10 +63,8 @@ def image_visibilities(
             `Box width in pixels = 2*support+1`.
         analytic_gcf (bool): Compute approximation of image-domain kernel from
             analytic expression of DFT.
-        hankel_opt (int): Use Hankel Transform (HT) optimization for quicker
-            execution of W-Projection. Set zero or non-zero value to disable or
-            enable HT. Large non-zero values increase HT accuracy, by using an
-            extended W-kernel workarea size.
+        hankel_opt (bool): Use Hankel Transform (HT) optimization for quicker
+            execution of W-Projection.
         undersampling_opt (int): Use W-kernel undersampling for faster kernel
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
@@ -81,14 +79,12 @@ def image_visibilities(
             Note numpy style index-order, i.e. access like ``image[y,x]``.
     """
 
-    assert isinstance(hankel_opt, int)
+    assert isinstance(hankel_opt, bool)
     assert isinstance(undersampling_opt, int)
     assert isinstance(wplanes_median, bool)
     assert isinstance(analytic_gcf, bool)
 
-    # Convert hankel_opt and undersampling_opt to power of two values
-    if hankel_opt > 0:
-        hankel_opt = pow(2, hankel_opt-1)
+    # Convert undersampling_opt to power of two value
     if undersampling_opt > 0:
         undersampling_opt = pow(2, undersampling_opt - 1)
 
@@ -100,7 +96,7 @@ def image_visibilities(
     if num_wplanes is None:
         num_wplanes = 0
         # Hankel transform only can be used when w-projection is enabled
-        hankel_opt = 0
+        hankel_opt = False
 
     if num_wplanes > 0 and kernel_exact is True:
         msg = "W-Projection (set by num_wplanes > 0) cannot be used when 'kernel_exact' is True. " \
@@ -136,16 +132,8 @@ def image_visibilities(
     beam = np.real(fft_to_image_plane(sample_grid))
 
     # Generate gridding correction kernel
-    if num_wplanes > 0 and hankel_opt > 0:
-        scaled_image_size = image_size_int * hankel_opt
-        gcf_array_scaled = ImgDomKernel(kernel_func, scaled_image_size, oversampling=None, normalize=False,
+    gcf_array = ImgDomKernel(kernel_func, image_size_int, oversampling=None, normalize=False,
                                         radial_line=False, analytic_gcf=analytic_gcf).array
-        image_slice = slice((scaled_image_size // 2) - (scaled_image_size // (2 * hankel_opt)),
-                            (scaled_image_size // 2) + (scaled_image_size // (2 * hankel_opt)))
-        gcf_array = gcf_array_scaled[image_slice, image_slice]
-    else:
-        gcf_array = ImgDomKernel(kernel_func, image_size_int, oversampling=None, normalize=False, radial_line=False,
-                                 analytic_gcf=analytic_gcf).array
 
     # Normalization factor:
     # We correct for the FFT scale factor of 1/image_size**2 by dividing by the image-domain AA-kernel
@@ -157,10 +145,7 @@ def image_visibilities(
     if analytic_gcf is True:
         total_sample_weight = np.real(sample_grid.sum()) / (image_size_int*image_size_int)
     else:
-        if hankel_opt > 0:
-            total_sample_weight = np.real(sample_grid.sum()) * pow(2, hankel_opt)
-        else:
-            total_sample_weight = np.real(sample_grid.sum())
+        total_sample_weight = np.real(sample_grid.sum())
 
     if total_sample_weight != 0:
         beam /= total_sample_weight
