@@ -98,7 +98,7 @@ class Kernel(object):
             self.x_distance_vec = oversampled_xy / oversampling - offset[0]
             kernel_1d = self.kernel_func(self.x_distance_vec)
             # Semi-diagonal of the kernel:
-            self.array = kernel_1d[(array_size//2):] * kernel_1d[(array_size//2):]
+            self.array = kernel_1d[(self.array_size//2):] * kernel_1d[(self.array_size//2):]
 
         if normalize:
             array_sum = self.array.sum()
