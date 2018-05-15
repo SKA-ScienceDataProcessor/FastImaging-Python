@@ -159,9 +159,8 @@ class ImgDomKernel(object):
             array_sum = kernel_1d.sum()
             if array_sum > 0.0:
                 kernel_1d /= array_sum
-            kernel_img_1d_aux = np.real(np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(kernel_1d))))
             kernel_img_1d = np.zeros((array_size,), dtype=np.float)
-            kernel_img_1d[range(array_offset, array_offset + kernel_size)] = kernel_img_1d_aux
+            kernel_img_1d[range(array_offset, array_offset + kernel_size)] = np.real(np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(kernel_1d))))
 
         if radial_line is False:
             # Multiply separable components to get the 2-d kernel:

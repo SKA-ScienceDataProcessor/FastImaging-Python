@@ -20,8 +20,8 @@ class CppKernelFuncs(object):
 # Mapping to equivalent implementation in pure Python
 PYTHON_KERNELS = {
     CppKernelFuncs.pswf: kfuncs.PSWF,
-    CppKernelFuncs.gauss: kfuncs.Gaussian,
     CppKernelFuncs.gauss_sinc: kfuncs.GaussianSinc,
+    CppKernelFuncs.gauss: kfuncs.Gaussian,
     CppKernelFuncs.sinc: kfuncs.Sinc,
     CppKernelFuncs.tophat: kfuncs.Pillbox,
     CppKernelFuncs.triangle: kfuncs.Triangle,
@@ -59,8 +59,10 @@ def cpp_image_visibilities(vis,
                            wplanes_median=False,
                            max_wpconv_support=0,
                            analytic_gcf=False,
-                           hankel_opt=0,
-                           undersampling_opt=0):
+                           hankel_opt=False,
+                           undersampling_opt=0,
+                           kernel_trunc_perc=0.0,
+                           interp_type=stp_python.InterpType.LINEAR):
     """
     Convenience wrapper over _cpp_image_visibilities.
 
@@ -115,10 +117,12 @@ def cpp_image_visibilities(vis,
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
             integer value.
-        normalize (bool): Whether or not the returned image and beam
-            should be normalized such that the beam peaks at a value of
-            1.0 Jansky. You normally want this to be true, but it may be
-            interesting to check the raw values for debugging purposes.
+        kernel_trunc_perc (float): Percentage of the kernel peak at which the
+            W-projection convolution kernel is trucanted. If 0 use kernel size
+            computed from max_wpconv_support.
+        interp_type (enum): Interpolation type to be used for kernel generation
+            step in the Hankel Transorm. Available options are: "LINEAR", "COSINE"
+            and "CUBIC".
 
     Returns:
         tuple: (image, beam)
@@ -158,7 +162,9 @@ def cpp_image_visibilities(vis,
         max_wpconv_support,
         analytic_gcf,
         hankel_opt,
-        undersampling_opt
+        undersampling_opt,
+        kernel_trunc_perc,
+        interp_type
     )
 
     return image, beam
