@@ -133,7 +133,7 @@ def image_visibilities(
 
     # Generate gridding correction kernel
     gcf_array = ImgDomKernel(kernel_func, image_size_int, oversampling=None, normalize=False,
-                                        radial_line=False, analytic_gcf=analytic_gcf).array
+                             radial_line=False, analytic_gcf=analytic_gcf).array
 
     # Normalization factor:
     # We correct for the FFT scale factor of 1/image_size**2 by dividing by the image-domain AA-kernel

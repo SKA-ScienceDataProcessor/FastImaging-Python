@@ -15,32 +15,6 @@ from fastimgproto.utils import reset_progress_bar
 logger = logging.getLogger(__name__)
 
 
-def construct_dht_matrix(N, r, k):
-    rn = np.concatenate(((r[1:(N)] + r[0:(N-1)]) / 2, [r[N-1]]))
-    kn = np.empty_like(k)
-    kn[1:] = 2 * np.pi / k[1:]
-    kn[0] = 0
-    I = np.outer(kn, rn) * jn(1, np.outer(k, rn))
-    I[0, :] = np.pi*rn*rn
-    I[:, 1:N] = I[:, 1:N] - I[:, 0:(N - 1)]
-    return I
-
-
-def dht(f):
-    """
-    Hankel Transform of order 0.
-    Args:
-        f (numpy.ndarray): Input vector be transformed.
-    Returns:
-        numpy.ndarray: Hankel transform output array.
-    """
-    N = f.shape[0]
-    r = np.arange(0, N)
-    k = (np.pi / N) * r
-    I = construct_dht_matrix(N, r, k)
-    return np.tensordot(I, f, axes=([1], [0]))
-
-
 def convolve_to_grid(kernel_func,
                      aa_support,
                      image_size,
@@ -192,6 +166,7 @@ def convolve_to_grid(kernel_func,
 
             # Define w-planes
             plane_size = np.ceil(num_gvis / num_wplanes)
+
             w_avg_values = np.empty(num_wplanes)
             w_planes_idx = np.empty_like(w_lambda, dtype=int)
 
@@ -279,7 +254,7 @@ def convolve_to_grid(kernel_func,
             if num_wplanes > 0:
                 normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])]
                 # If w is negative, we must use the conjugate kernel
-                if w_lambda[idx] < 0:
+                if w_lambda[idx] < 0.0:
                     normed_kernel_array = np.conj(normed_kernel_array)
             else:
                 normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])].array
@@ -323,8 +298,8 @@ def _bounds_check_kernel_centre_locations(uv, kernel_centre_indices,
     """
 
     out_of_bounds_bool = (
-        (kernel_centre_indices[:, 0] - support < 0)
-        | (kernel_centre_indices[:, 1] - support < 0)
+        (kernel_centre_indices[:, 0] - support <= 0)
+        | (kernel_centre_indices[:, 1] - support <= 0)
         | (kernel_centre_indices[:, 0] + support >= image_size)
         | (kernel_centre_indices[:, 1] + support >= image_size)
     )
@@ -417,7 +392,34 @@ def populate_kernel_cache(kernel_func, support, oversampling):
     return cache
 
 
-def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, conv_support, oversampling, hankel_opt=False):
+def construct_dht_matrix(N, r, k):
+    rn = np.concatenate(((r[1:(N)] + r[0:(N-1)]) / 2, [r[N-1]]))
+    kn = np.empty_like(k)
+    kn[1:] = 2 * np.pi / k[1:]
+    kn[0] = 0
+    I = np.outer(kn, rn) * jn(1, np.outer(k, rn))
+    I[0, :] = np.pi*rn*rn
+    I[:, 1:N] = I[:, 1:N] - I[:, 0:(N - 1)]
+    return I
+
+
+def dht(f):
+    """
+    Hankel Transform of order 0.
+    Args:
+        f (numpy.ndarray): Input vector be transformed.
+    Returns:
+        numpy.ndarray: Hankel transform output array.
+    """
+    N = f.shape[0]
+    r = np.arange(0, N)
+    k = (np.pi / N) * r
+    I = construct_dht_matrix(N, r, k)
+    return np.tensordot(I, f, axes=([1], [0]))
+
+
+def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, conv_support, oversampling,
+                                      hankel_opt=False):
     """
     Generate a cache of kernels at oversampled-pixel offsets for W-Projection.
 

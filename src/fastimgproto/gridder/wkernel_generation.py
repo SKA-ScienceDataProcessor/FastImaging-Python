@@ -51,21 +51,22 @@ class WKernel(object):
             self.array_size = array_size
             kernel_size = int(self.array_size // oversampling)
             centre_idx = kernel_size // 2
+            assert(kernel_size % 2 == 0)
 
             # Distance from each pixel's sample position to kernel-centre position:
             # (units of pixels)
-            xy_pixels = np.arange(kernel_size, dtype=np.float_) - centre_idx
+            xy_pixels = np.arange(kernel_size-1, dtype=np.float_) - (centre_idx-1)
 
             # Now translate that to distance in terms of direction cosines and scale according the scale ratio
             self.distance_vec = xy_pixels * cell_size * scale
 
             # Create empty 2-D kernel array
             self.array = np.zeros((self.array_size, self.array_size), dtype=np.complex)
-            array_offset = (self.array_size // 2) - centre_idx
+            array_offset = (self.array_size // 2) - (centre_idx-1)
 
             # Generate kernel coefficients
-            for y in range(kernel_size):
-                for x in range(kernel_size):
+            for y in range(kernel_size-1):
+                for x in range(kernel_size-1):
                     squared_radians = self.distance_vec[x] * self.distance_vec[x] + self.distance_vec[y] * self.distance_vec[y]
                     if squared_radians > 1.0:
                         self.array[array_offset + y, array_offset + x] = 1.0
