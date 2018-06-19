@@ -30,6 +30,7 @@ def convolve_to_grid(kernel_func,
                      max_wpconv_support=0,
                      analytic_gcf=False,
                      hankel_opt=False,
+                     interp_type="linear",
                      undersampling_opt=0,
                      raise_bounds=False,
                      progress_bar=None):
@@ -92,6 +93,7 @@ def convolve_to_grid(kernel_func,
             analytic expression of DFT.
         hankel_opt (bool): Use Hankel Transform (HT) optimization for quicker
             execution of W-Projection.
+        interp_type (string): Interpolation method (use "linear" or "cubic").
         undersampling_opt (int): Use W-kernel undersampling for faster kernel
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
@@ -243,7 +245,7 @@ def convolve_to_grid(kernel_func,
 
                 kernel_cache, conv_support = \
                     generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
-                                                      max_wpconv_support, oversampling, hankel_opt)
+                                                      max_wpconv_support, oversampling, hankel_opt, interp_type)
 
         # Integer positions of the kernel
         gc_x, gc_y = kernel_centre_on_grid[idx]
@@ -419,7 +421,7 @@ def dht(f):
 
 
 def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, conv_support, oversampling,
-                                      hankel_opt=False):
+                                      hankel_opt=False, interp_type="linear"):
     """
     Generate a cache of kernels at oversampled-pixel offsets for W-Projection.
 
@@ -434,6 +436,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         conv_support (int): Convolution kernel support size.
         oversampling (int): Oversampling ratio.
         hankel_opt (bool): Use hankel transform optimisation.
+        interp_type (string): Interpolation method (use "linear" or "cubic").
 
     Returns:
         dict: Dictionary mapping oversampling-pixel offsets to normalised gridding
@@ -466,7 +469,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         x, y = np.meshgrid(range(max_kernel_size + 1), range(max_kernel_size + 1))
         r = np.sqrt((x - kernel_centre) ** 2 + (y - kernel_centre) ** 2)
         f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2)), 1 / (np.sqrt(2))),
-                     comb_kernel_radius, copy=False, kind="cubic", bounds_error=False, fill_value=0.0,
+                     comb_kernel_radius, copy=False, kind=interp_type, bounds_error=False, fill_value=0.0,
                      assume_sorted=True)
         comb_kernel_array = f(r.flat).reshape(r.shape)
 

@@ -23,7 +23,8 @@ def image_visibilities(
         wplanes_median=False,
         max_wpconv_support=0,
         analytic_gcf=False,
-        hankel_opt=0,
+        hankel_opt=False,
+        interp_type="linear",
         undersampling_opt=0,
         progress_bar=None):
     """
@@ -65,6 +66,7 @@ def image_visibilities(
             analytic expression of DFT.
         hankel_opt (bool): Use Hankel Transform (HT) optimization for quicker
             execution of W-Projection.
+        interp_type (string): Interpolation method (use "linear" or "cubic").
         undersampling_opt (int): Use W-kernel undersampling for faster kernel
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
@@ -123,6 +125,7 @@ def image_visibilities(
                                              max_wpconv_support=max_wpconv_support,
                                              analytic_gcf=analytic_gcf,
                                              hankel_opt=hankel_opt,
+                                             interp_type=interp_type,
                                              undersampling_opt=undersampling_opt,
                                              progress_bar=progress_bar
                                              )
