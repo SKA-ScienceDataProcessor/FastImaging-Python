@@ -13,6 +13,7 @@ def image_visibilities(
         vis,
         vis_weights,
         uvw_lambda,
+        lha,
         image_size,
         cell_size,
         kernel_func,
@@ -37,6 +38,9 @@ def image_visibilities(
             multiples of wavelength.
             2d array of ``np.float_``, shape: ``(n_vis, 3)``.
             Assumed ordering is u,v,w i.e. ``u,v,w = uvw[idx]``
+        lha (numpy.ndarray): Local hour angle of visibilities.
+            LHA=0 is transit, LHA=-6h is rising, LHA=+6h is setting.
+            1d array, shape: `(n_vis,)`.
         image_size (astropy.units.Quantity): Width of the image in pixels.
             e.g. ``1024 * u.pixel``.
             NB we assume the pixel ``[image_size//2,image_size//2]``
@@ -116,6 +120,7 @@ def image_visibilities(
                                              uv=uv_in_pixels,
                                              vis=vis,
                                              vis_weights=vis_weights,
+                                             lha=lha,
                                              exact=kernel_exact,
                                              oversampling=kernel_oversampling,
                                              num_wplanes=num_wplanes,

@@ -21,6 +21,7 @@ def convolve_to_grid(kernel_func,
                      uv,
                      vis,
                      vis_weights,
+                     lha,
                      exact=True,
                      oversampling=None,
                      num_wplanes=None,
@@ -76,6 +77,8 @@ def convolve_to_grid(kernel_func,
             1d array, shape: `(n_vis,)`.
         vis_weights (numpy.ndarray): Visibility weights.
             1d array, shape: `(n_vis,)`.
+        lha (numpy.ndarray): Local hour angle of visibilities.
+            1d array, shape: `(n_vis,)`.
         exact (bool): Calculate exact kernel-values for every UV-sample.
         oversampling (int): Controls kernel-generation if ``exact==False``.
             Larger values give a finer-sampled set of pre-cached kernels.
@@ -116,7 +119,10 @@ def convolve_to_grid(kernel_func,
     if num_wplanes is None:
         num_wplanes = 0
     if num_wplanes > 0:
+        use_wproj = True
         assert exact is False
+    else:
+        use_wproj=False
     if w_lambda is not None:
         assert len(w_lambda) == len(vis)
     assert len(uv) == len(vis)
@@ -129,7 +135,7 @@ def convolve_to_grid(kernel_func,
             oversampling = (oversampling // 2) * 2
 
     # Sort uvw lambda data by increasing absolute value of w-lambda
-    if num_wplanes > 0:
+    if use_wproj is True:
         sort_arg = np.abs(w_lambda).argsort()
         w_lambda = w_lambda[sort_arg]
         uv = uv[sort_arg]
@@ -146,7 +152,7 @@ def convolve_to_grid(kernel_func,
     kernel_centre_on_grid = uv_rounded_int + (image_size // 2, image_size // 2)
 
     # Set convolution kernel support for gridding
-    if num_wplanes > 0:
+    if use_wproj is True:
         conv_support = max_wpconv_support
     else:
         conv_support = aa_support
@@ -163,14 +169,15 @@ def convolve_to_grid(kernel_func,
             uv_frac, oversampling)
 
         # Compute W-Planes and convolution kernels for W-Projection
-        if num_wplanes > 0:
+        if use_wproj is True:
             num_gvis = len(good_vis_idx)
 
             # Define w-planes
             plane_size = np.ceil(num_gvis / num_wplanes)
 
             w_avg_values = np.empty(num_wplanes)
-            w_planes_idx = np.empty_like(w_lambda, dtype=int)
+            w_planes_firstidx = np.empty(num_wplanes, dtype=int)
+            w_planes_lastidx = np.empty(num_wplanes, dtype=int)
 
             for idx in range(0, num_wplanes):
                 begin = int(idx * plane_size)
@@ -180,8 +187,9 @@ def convolve_to_grid(kernel_func,
                     w_avg_values[idx] = np.median(np.abs(w_lambda[indexes]))
                 else:
                     w_avg_values[idx] = np.average(np.abs(w_lambda[indexes]))
+                w_planes_firstidx[idx] = begin
+                w_planes_lastidx[idx] = end
 
-                w_planes_idx[indexes] = idx
                 if end >= num_gvis:
                     break
 
@@ -215,6 +223,12 @@ def convolve_to_grid(kernel_func,
         else:
             # Compute oversampled AA kernel cache
             kernel_cache = populate_kernel_cache(kernel_func, aa_support, oversampling)
+            # Set 1 plane although W-projection is False (required for gridding)
+            num_wplanes = 1
+            w_planes_firstidx = np.empty(num_wplanes, dtype=int)
+            w_planes_lastidx = np.empty(num_wplanes, dtype=int)
+            w_planes_firstidx[0] = 0
+            w_planes_lastidx[0] = len(good_vis_idx)
 
     # Create gridding arrays
     vis_grid = np.zeros((image_size, image_size), dtype=np.complex)
@@ -228,48 +242,44 @@ def convolve_to_grid(kernel_func,
     if progress_bar is not None:
         reset_progress_bar(progress_bar, len(good_vis_idx), 'Gridding visibilities')
 
-    wplane = -1
-    for idx in good_vis_idx:
-        weight = vis_weights[idx]
-        if weight == 0.:
-            continue  # Skip this visibility if zero-weighted
+    for wplane in range(num_wplanes):
+        if use_wproj is True:
+            # Generate W-kernel
+            w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
+                               oversampling=oversampling, scale=undersampling_scale,
+                               radial_line=radial_line)
+            kernel_cache, conv_support = \
+                generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
+                                                  max_wpconv_support, oversampling, hankel_opt, interp_type)
 
-        if num_wplanes > 0:
-            # Get wplane idx
-            if wplane != w_planes_idx[idx]:
-                wplane = w_planes_idx[idx]
-                # Generate W-kernel
-                w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
-                                   oversampling=oversampling, scale=undersampling_scale,
-                                   radial_line=radial_line)
+        for idx in good_vis_idx[w_planes_firstidx[wplane]:w_planes_lastidx[wplane]]:
+            weight = vis_weights[idx]
+            if weight == 0.:
+                continue  # Skip this visibility if zero-weighted
 
-                kernel_cache, conv_support = \
-                    generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
-                                                      max_wpconv_support, oversampling, hankel_opt, interp_type)
-
-        # Integer positions of the kernel
-        gc_x, gc_y = kernel_centre_on_grid[idx]
-        if exact:
-            normed_kernel_array = Kernel(kernel_func=kernel_func, support=aa_support, offset=uv_frac[idx],
-                                         normalize=True).array
-        else:
-            if num_wplanes > 0:
-                normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])]
-                # If w is negative, we must use the conjugate kernel
-                if w_lambda[idx] < 0.0:
-                    normed_kernel_array = np.conj(normed_kernel_array)
+            # Integer positions of the kernel
+            gc_x, gc_y = kernel_centre_on_grid[idx]
+            if exact:
+                normed_kernel_array = Kernel(kernel_func=kernel_func, support=aa_support, offset=uv_frac[idx],
+                                             normalize=True).array
             else:
-                normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])].array
+                if use_wproj is True:
+                    normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])]
+                    # If w is negative, we must use the conjugate kernel
+                    if w_lambda[idx] < 0.0:
+                        normed_kernel_array = np.conj(normed_kernel_array)
+                else:
+                    normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])].array
 
-        # Generate a convolution kernel with the precise offset required:
-        xrange = slice(gc_x - conv_support, gc_x + conv_support + 1)
-        yrange = slice(gc_y - conv_support, gc_y + conv_support + 1)
+            # Generate a convolution kernel with the precise offset required:
+            xrange = slice(gc_x - conv_support, gc_x + conv_support + 1)
+            yrange = slice(gc_y - conv_support, gc_y + conv_support + 1)
 
-        downweighted_kernel = weight * normed_kernel_array
-        vis_grid[yrange, xrange] += vis[idx] * downweighted_kernel
-        sampling_grid[yrange, xrange] += typed_one * downweighted_kernel
-        if progress_bar is not None:
-            progress_bar.update(1)
+            downweighted_kernel = weight * normed_kernel_array
+            vis_grid[yrange, xrange] += vis[idx] * downweighted_kernel
+            sampling_grid[yrange, xrange] += typed_one * downweighted_kernel
+            if progress_bar is not None:
+                progress_bar.update(1)
 
     return vis_grid, sampling_grid
 
