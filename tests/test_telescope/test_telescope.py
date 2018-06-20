@@ -91,7 +91,7 @@ def test_uvw_tracking_skyposn():
     assert (uvw_by_lha == list(uvw_by_tracking.values())[1]).all()
 
     n_total_baselines = len(telescope.baseline_local_xyz) * len(obs_times)
-    flattened_uvw_array = telescope.uvw_tracking_skycoord(
+    flattened_uvw_array, lha_array = telescope.uvw_tracking_skycoord(
         azimuth_target, obs_times)
     assert flattened_uvw_array.to(u.m)
     assert len(flattened_uvw_array) == n_total_baselines

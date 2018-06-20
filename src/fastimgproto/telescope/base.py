@@ -230,6 +230,7 @@ class Telescope(object):
         n_baselines = len(self.baseline_local_xyz)
         uvw_array = np.zeros((len(obs_times) * n_baselines, 3),
                              dtype=np.float_) * self.baseline_local_xyz.unit
+        lha_array = np.zeros((len(obs_times) * n_baselines), dtype=np.float_) * u.hourangle
         if progress_bar is not None:
             reset_progress_bar(progress_bar, len(obs_times), 'Generating UVW-baselines')
 
@@ -239,9 +240,10 @@ class Telescope(object):
             uvw_array[output_slice] = self.uvw_at_local_hour_angle(
                 local_hour_angle=lha, dec=pointing_centre.dec
             )
+            lha_array[output_slice] = lha
             if progress_bar is not None:
                 progress_bar.update()
-        return uvw_array
+        return uvw_array, lha_array
 
 
 def generate_baselines_and_labels(antenna_positions, antenna_labels):
