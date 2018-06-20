@@ -33,6 +33,8 @@ def convolve_to_grid(kernel_func,
                      hankel_opt=False,
                      interp_type="linear",
                      undersampling_opt=0,
+                     aproj_tinc=0.0,
+                     mueller_term=np.ones(1),
                      raise_bounds=False,
                      progress_bar=None):
     """
@@ -101,6 +103,10 @@ def convolve_to_grid(kernel_func,
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
             integer value.
+        aproj_tinc (float): Time increment in hours to compute the A-kernel.
+            Set zero to disable A-projection.
+        mueller_term (numpy.array): Term from Mueller matrix (defined each
+            image coordinate) used for A-projection.
         raise_bounds (bool): Raise an exception if any of the UV
             samples lie outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
@@ -116,15 +122,27 @@ def convolve_to_grid(kernel_func,
     """
     if oversampling is None:
         oversampling = 1
+
     if num_wplanes is None:
         num_wplanes = 0
+
     if num_wplanes > 0:
         use_wproj = True
         assert exact is False
     else:
-        use_wproj=False
+        use_wproj = False
+
+    if aproj_tinc > 0.0:
+        use_aproj = True
+        assert exact is False
+        assert use_wproj is True
+        assert hankel_opt is False
+    else:
+        use_aproj = False
+
     if w_lambda is not None:
         assert len(w_lambda) == len(vis)
+
     assert len(uv) == len(vis)
 
     # Check for sensible combinations of exact / oversampling parameter-values:
@@ -141,6 +159,7 @@ def convolve_to_grid(kernel_func,
         uv = uv[sort_arg]
         vis = vis[sort_arg]
         vis_weights = vis_weights[sort_arg]
+        lha = lha[sort_arg]
 
     # Calculate nearest integer pixel co-ords ('rounded positions')
     uv_rounded = np.around(uv)
@@ -223,7 +242,7 @@ def convolve_to_grid(kernel_func,
         else:
             # Compute oversampled AA kernel cache
             kernel_cache = populate_kernel_cache(kernel_func, aa_support, oversampling)
-            # Set 1 plane although W-projection is False (required for gridding)
+            # Set 1 plane when W-projection is False (just to enable gridding)
             num_wplanes = 1
             w_planes_firstidx = np.empty(num_wplanes, dtype=int)
             w_planes_lastidx = np.empty(num_wplanes, dtype=int)
@@ -242,44 +261,84 @@ def convolve_to_grid(kernel_func,
     if progress_bar is not None:
         reset_progress_bar(progress_bar, len(good_vis_idx), 'Gridding visibilities')
 
+    if use_aproj is True:
+        min_time = np.min(lha)
+        max_time = np.max(lha)
+        time_intervals = np.arange(min_time, max_time + aproj_tinc, aproj_tinc)
+        if time_intervals[-1] <= max_time:
+            np.append(time_intervals, time_intervals[-1] + aproj_tinc)
+        time_steps = len(time_intervals) - 1
+    else:
+        min_time = np.min(lha)
+        max_time = np.max(lha)
+        time_steps = 1
+        time_intervals = [min_time, max_time + aproj_tinc]
+
     for wplane in range(num_wplanes):
+        wp_low = w_planes_firstidx[wplane]
+        wp_high = w_planes_lastidx[wplane]
+
         if use_wproj is True:
             # Generate W-kernel
             w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
                                oversampling=oversampling, scale=undersampling_scale,
                                radial_line=radial_line)
-            kernel_cache, conv_support = \
-                generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
-                                                  max_wpconv_support, oversampling, hankel_opt, interp_type)
 
-        for idx in good_vis_idx[w_planes_firstidx[wplane]:w_planes_lastidx[wplane]]:
-            weight = vis_weights[idx]
-            if weight == 0.:
-                continue  # Skip this visibility if zero-weighted
+            if use_aproj is True:
+                wp_times = lha[wp_low:wp_high]
 
-            # Integer positions of the kernel
-            gc_x, gc_y = kernel_centre_on_grid[idx]
-            if exact:
-                normed_kernel_array = Kernel(kernel_func=kernel_func, support=aa_support, offset=uv_frac[idx],
-                                             normalize=True).array
-            else:
-                if use_wproj is True:
-                    normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])]
-                    # If w is negative, we must use the conjugate kernel
-                    if w_lambda[idx] < 0.0:
-                        normed_kernel_array = np.conj(normed_kernel_array)
+        for ts in range(time_steps):
+            if use_aproj is True:
+                # Check if there are visibilities within this time range
+                targs = np.where(np.logical_and(wp_times >= time_intervals[ts], wp_times < time_intervals[ts + 1]))
+                if np.size(targs) > 0:
+                    # Generate the AW-kernels
+                    # aCF = GK.akernel(i, times, uvw, image_params, obs_params, Mterm, Mterms_ij)
+                    time_mean = np.mean(wp_times[targs])
+                    kernel_cache, conv_support = \
+                        generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
+                                                          max_wpconv_support, oversampling, hankel_opt, interp_type)
                 else:
-                    normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])].array
+                    continue
+            else:
+                kernel_cache, conv_support = \
+                    generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
+                                                      max_wpconv_support, oversampling, hankel_opt, interp_type)
 
-            # Generate a convolution kernel with the precise offset required:
-            xrange = slice(gc_x - conv_support, gc_x + conv_support + 1)
-            yrange = slice(gc_y - conv_support, gc_y + conv_support + 1)
+            for idx in good_vis_idx[wp_low:wp_high]:
+                weight = vis_weights[idx]
+                # Skip this visibility if zero-weighted
+                if weight == 0.:
+                    continue
 
-            downweighted_kernel = weight * normed_kernel_array
-            vis_grid[yrange, xrange] += vis[idx] * downweighted_kernel
-            sampling_grid[yrange, xrange] += typed_one * downweighted_kernel
-            if progress_bar is not None:
-                progress_bar.update(1)
+                # Skip this visibility if using A-projection and it does not belong to the time interval
+                if use_aproj is True and not np.logical_and(lha[idx] >= time_intervals[ts],
+                                                            lha[idx] < time_intervals[ts+1]):
+                    continue
+
+                # Integer positions of the kernel
+                gc_x, gc_y = kernel_centre_on_grid[idx]
+                if exact:
+                    normed_kernel_array = Kernel(kernel_func=kernel_func, support=aa_support, offset=uv_frac[idx],
+                                                 normalize=True).array
+                else:
+                    if use_wproj is True:
+                        normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])]
+                        # If w is negative, we must use the conjugate kernel
+                        if w_lambda[idx] < 0.0:
+                            normed_kernel_array = np.conj(normed_kernel_array)
+                    else:
+                        normed_kernel_array = kernel_cache[tuple(oversampled_offset[idx])].array
+
+                # Generate a convolution kernel with the precise offset required:
+                xrange = slice(gc_x - conv_support, gc_x + conv_support + 1)
+                yrange = slice(gc_y - conv_support, gc_y + conv_support + 1)
+
+                downweighted_kernel = weight * normed_kernel_array
+                vis_grid[yrange, xrange] += vis[idx] * downweighted_kernel
+                sampling_grid[yrange, xrange] += typed_one * downweighted_kernel
+                if progress_bar is not None:
+                    progress_bar.update(1)
 
     return vis_grid, sampling_grid
 
@@ -310,10 +369,10 @@ def _bounds_check_kernel_centre_locations(uv, kernel_centre_indices,
     """
 
     out_of_bounds_bool = (
-        (kernel_centre_indices[:, 0] - support <= 0)
-        | (kernel_centre_indices[:, 1] - support <= 0)
-        | (kernel_centre_indices[:, 0] + support >= image_size)
-        | (kernel_centre_indices[:, 1] + support >= image_size)
+            (kernel_centre_indices[:, 0] - support <= 0)
+            | (kernel_centre_indices[:, 1] - support <= 0)
+            | (kernel_centre_indices[:, 0] + support >= image_size)
+            | (kernel_centre_indices[:, 1] + support >= image_size)
     )
     out_of_bounds_idx = np.nonzero(out_of_bounds_bool)[0]
     good_vis_idx = np.nonzero(np.invert(out_of_bounds_bool))[0]
@@ -405,12 +464,12 @@ def populate_kernel_cache(kernel_func, support, oversampling):
 
 
 def construct_dht_matrix(N, r, k):
-    rn = np.concatenate(((r[1:(N)] + r[0:(N-1)]) / 2, [r[N-1]]))
+    rn = np.concatenate(((r[1:(N)] + r[0:(N - 1)]) / 2, [r[N - 1]]))
     kn = np.empty_like(k)
     kn[1:] = 2 * np.pi / k[1:]
     kn[0] = 0
     I = np.outer(kn, rn) * jn(1, np.outer(k, rn))
-    I[0, :] = np.pi*rn*rn
+    I[0, :] = np.pi * rn * rn
     I[:, 1:N] = I[:, 1:N] - I[:, 0:(N - 1)]
     return I
 

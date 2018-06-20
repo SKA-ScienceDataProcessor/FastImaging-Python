@@ -27,6 +27,8 @@ def image_visibilities(
         hankel_opt=False,
         interp_type="linear",
         undersampling_opt=0,
+        aproj_tinc=0.0,
+        mueller_term=np.ones(1),
         progress_bar=None):
     """
     Args:
@@ -75,6 +77,10 @@ def image_visibilities(
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
             integer value.
+        aproj_tinc (float): Time increment in hours to compute the A-kernel.
+            Set zero to disable A-projection.
+        mueller_term (numpy.array): Term from Mueller matrix (defined each
+            image coordinate) used for A-projection.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
@@ -132,6 +138,8 @@ def image_visibilities(
                                              hankel_opt=hankel_opt,
                                              interp_type=interp_type,
                                              undersampling_opt=undersampling_opt,
+                                             aproj_tinc=aproj_tinc,
+                                             mueller_term=mueller_term,
                                              progress_bar=progress_bar
                                              )
 
