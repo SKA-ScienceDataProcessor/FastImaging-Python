@@ -52,7 +52,9 @@ def cpp_sourcefind(image_data,
                    # Other options: BINAPPROX', 'BINMEDIAN', 'NTHELEMENT', 'ZEROMEDIAN'
                    median_method=stp_python.MedianMethod.BINMEDIAN,
                    gaussian_fitting=False,
+                   ccl_4connectivity=False,
                    generate_labelmap=False,
+                   source_min_area=5,
                    # Other options: stp_python.CeresDiffMethod.AutoDiff, stp_python.CeresDiffMethod.AnalyticDiff_SingleResBlk, stp_python.CeresDiffMethod.AnalyticDiff
                    ceres_diffmethod=stp_python.CeresDiffMethod.AnalyticDiff,
                    # Other options: stp_python.CeresSolverType.LinearSearch_LBFGS, stp_python.CeresSolverType.TrustRegion_DenseQR
@@ -68,7 +70,9 @@ def cpp_sourcefind(image_data,
         sigma_clip_iters=sigma_clip_iters,
         median_method=median_method,
         gaussian_fitting=gaussian_fitting,
+        ccl_4connectivity=ccl_4connectivity,
         generate_labelmap=generate_labelmap,
+        source_min_area=source_min_area,
         ceres_diffmethod=ceres_diffmethod,
         ceres_solvertype=ceres_solvertype)
 
