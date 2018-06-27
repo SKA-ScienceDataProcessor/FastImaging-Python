@@ -16,9 +16,10 @@ def cpp_sourcefind_result_to_islandparams(result):
     sign = r[0]
     extremum = Pixel(value=r[1],
                      index=PixelIndex(x=r[2], y=r[3]), )
-    moments_fit_vals = r[4]
-    lsq_fit_vals = r[5]
-    report = r[6]
+    num_samples = r[4]
+    moments_fit_vals = r[5]
+    lsq_fit_vals = r[6]
+    report = r[7]
     moments_fit = Gaussian2dParams(x_centre=moments_fit_vals.x_centre,
                                    y_centre=moments_fit_vals.y_centre,
                                    amplitude=moments_fit_vals.amplitude,

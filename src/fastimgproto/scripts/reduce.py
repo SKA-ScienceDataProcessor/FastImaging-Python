@@ -42,6 +42,7 @@ def cli(config_json, input_npz, ):
 
     npz_content = np.load(input_npz)
     uvw_lambda = npz_content['uvw_lambda']
+    lha = npz_content['lha']
     local_skymodel = npz_content['skymodel']
     data_vis = npz_content['vis']
     snr_weights = npz_content['snr_weights']
@@ -57,6 +58,7 @@ def cli(config_json, input_npz, ):
         skymodel=local_skymodel,
         data_vis=data_vis,
         snr_weights=snr_weights,
+        lha=lha,
         image_size=image_size,
         cell_size=cell_size,
         detection_n_sigma=detection_n_sigma,
@@ -98,6 +100,7 @@ def main(uvw_lambda,
          skymodel,
          data_vis,
          snr_weights,
+         lha,
          image_size,
          cell_size,
          detection_n_sigma,
@@ -121,6 +124,7 @@ def main(uvw_lambda,
         image, beam = imager.image_visibilities(residual_vis,
                                                 vis_weights=snr_weights,
                                                 uvw_lambda=uvw_lambda,
+                                                lha=lha,
                                                 image_size=image_size,
                                                 cell_size=cell_size,
                                                 kernel_func=kernel_func,
@@ -133,6 +137,10 @@ def main(uvw_lambda,
                                                 analytic_gcf=True,
                                                 hankel_opt=True,
                                                 undersampling_opt=1,
+                                                kernel_trunc_perc=1.0,
+                                                aproj_tinc=0.0,
+                                                obs_dec=0.0,
+                                                obs_lat=-30.0,
                                                 progress_bar=progress_bar)
     logger.info("Running sourcefinder on image")
     sfimage = SourceFindImage(data=np.real(image),

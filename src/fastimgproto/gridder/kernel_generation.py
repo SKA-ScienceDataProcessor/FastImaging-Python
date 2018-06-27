@@ -116,9 +116,6 @@ class ImgDomKernel(object):
             that returns a convolution
             co-efficient for a given distance in pixel-widths.
         array_size (int): Image domain kernel width in pixels.
-        oversampling (int): Oversampling ratio, how many kernel pixels
-            to each UV-grid pixel.
-            Defaults to 1 if not given or ``oversampling=None`` is passed.
         normalize (bool): Whether to normalize the kernel.
         radial_line (bool): Computes only the semi-diagonal line of the kernel rather
             than the 2D matrix.
@@ -132,36 +129,25 @@ class ImgDomKernel(object):
 
     """
 
-    def __init__(self, kernel_func, array_size, oversampling=None, normalize=False,
-                 radial_line=False, analytic_gcf=False):
-        if oversampling is None:
-            oversampling = 1
+    def __init__(self, kernel_func, array_size, normalize=False, radial_line=False, analytic_gcf=False):
 
         assert (array_size % 2) == 0
-        assert (array_size % oversampling) == 0
-        assert ((array_size / oversampling) % 2) == 0
 
         self.array_size = array_size
-        self.oversampling = oversampling
         self.kernel_func = kernel_func
-        kernel_size = int(array_size // oversampling)
-        centre_idx = kernel_size // 2
-        array_offset = array_size // 2 - centre_idx
+        centre_idx = array_size // 2
 
         if analytic_gcf is True:
-            self.radius = (np.arange(kernel_size, dtype=np.float_) - centre_idx) / centre_idx
-            kernel_img_1d = np.zeros((array_size,), dtype=np.float)
-            kernel_img_1d[range(array_offset, array_offset+kernel_size)] = self.kernel_func.gcf(self.radius)
+            self.radius = (np.arange(array_size, dtype=np.float_) - centre_idx) / centre_idx
+            kernel_img_1d = self.kernel_func.gcf(self.radius)
         else:
             # Distance from each pixel's sample position to kernel-centre position:
-            self.distance_vec = (np.arange(kernel_size, dtype=np.float_) - centre_idx)
+            self.distance_vec = (np.arange(array_size, dtype=np.float_) - centre_idx)
             kernel_1d = self.kernel_func(self.distance_vec)
             array_sum = kernel_1d.sum()
             if array_sum > 0.0:
                 kernel_1d /= array_sum
-            kernel_img_1d = np.zeros((array_size,), dtype=np.float)
-            kernel_img_1d[range(array_offset, array_offset + kernel_size)] = \
-                np.real(np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(kernel_1d))))
+            kernel_img_1d = np.real(np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(kernel_1d))))
 
         if radial_line is False:
             # Multiply separable components to get the 2-d kernel:

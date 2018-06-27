@@ -7,6 +7,7 @@ import numpy as np
 import tqdm
 from scipy.special import jn
 from scipy.interpolate import interp1d
+from scipy import ndimage
 
 from fastimgproto.gridder.wkernel_generation import WKernel
 from fastimgproto.gridder.kernel_generation import Kernel, ImgDomKernel
@@ -33,8 +34,11 @@ def convolve_to_grid(kernel_func,
                      hankel_opt=False,
                      interp_type="linear",
                      undersampling_opt=0,
+                     kernel_trunc_perc=1.0,
                      aproj_tinc=0.0,
                      mueller_term=np.ones(1),
+                     obs_dec=0.0,
+                     obs_lat=0.0,
                      raise_bounds=False,
                      progress_bar=None):
     """
@@ -65,7 +69,7 @@ def convolve_to_grid(kernel_func,
             (e.g. :class:`.conv_funcs.Pillbox`,)
             that returns a convolution
             co-efficient for a given distance in pixel-widths.
-        support (int): Defines the 'radius' of the bounding box within
+        aa_support (int): Defines the 'radius' of the bounding box within
             which convolution takes place. `Box width in pixels = 2*support+1`.
             (The central pixel is the one nearest to the UV co-ordinates.)
             (This is sometimes known as the 'half-support')
@@ -103,12 +107,16 @@ def convolve_to_grid(kernel_func,
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
             integer value.
+        kernel_trunc_perc (float): Percentage of maximum amplitude from which
+            convolution kernel is truncated.
         aproj_tinc (float): Time increment in hours to compute the A-kernel.
             Set zero to disable A-projection.
-        mueller_term (numpy.array): Term from Mueller matrix (defined each
-            image coordinate) used for A-projection.
-        raise_bounds (bool): Raise an exception if any of the UV
-            samples lie outside (or too close to the edge) of the grid.
+        mueller_term (numpy.array):  Mueller matrix term (defined each image
+            coordinate) used for A-projection.
+        obs_dec (float): Declination of observation pointing centre (in degrees)
+        obs_lat (float): Latitude of observation pointing centre (in degrees)
+        raise_bounds (bool): Raise an exception if any of the UV samples lie
+            outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
@@ -214,7 +222,7 @@ def convolve_to_grid(kernel_func,
 
             # Calculate kernel working area size
             undersampling_scale = 1
-            workarea_size = image_size * oversampling
+            workarea_size = image_size
 
             # Kernel undersampling optimization for speedup
             if undersampling_opt > 0:
@@ -224,7 +232,7 @@ def convolve_to_grid(kernel_func,
                 assert (workarea_size % undersampling_scale) == 0
                 assert ((workarea_size // undersampling_scale) % 2) == 0
                 # Compute workarea size
-                workarea_size = workarea_size // undersampling_scale
+                workarea_size = image_size // undersampling_scale
 
             if hankel_opt is True:
                 radial_line = True
@@ -235,8 +243,7 @@ def convolve_to_grid(kernel_func,
                 radial_line = False
 
             # Compute image-domain AA kernel
-            aa_kernel_img_array = ImgDomKernel(kernel_func, workarea_size, oversampling=oversampling,
-                                               normalize=False, radial_line=radial_line,
+            aa_kernel_img_array = ImgDomKernel(kernel_func, workarea_size, normalize=False, radial_line=radial_line,
                                                analytic_gcf=analytic_gcf).array
 
         else:
@@ -268,12 +275,14 @@ def convolve_to_grid(kernel_func,
         if time_intervals[-1] <= max_time:
             np.append(time_intervals, time_intervals[-1] + aproj_tinc)
         time_steps = len(time_intervals) - 1
+        mueller_term = np.resize(mueller_term, (workarea_size, workarea_size))
     else:
         min_time = np.min(lha)
         max_time = np.max(lha)
         time_steps = 1
         time_intervals = [min_time, max_time + aproj_tinc]
 
+    # Iterate through each w-plane
     for wplane in range(num_wplanes):
         wp_low = w_planes_firstidx[wplane]
         wp_high = w_planes_lastidx[wplane]
@@ -281,12 +290,12 @@ def convolve_to_grid(kernel_func,
         if use_wproj is True:
             # Generate W-kernel
             w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
-                               oversampling=oversampling, scale=undersampling_scale,
-                               radial_line=radial_line)
+                               scale=undersampling_scale, radial_line=radial_line)
 
             if use_aproj is True:
                 wp_times = lha[wp_low:wp_high]
 
+        # Iterate through each time step
         for ts in range(time_steps):
             if use_aproj is True:
                 # Check if there are visibilities within this time range
@@ -294,17 +303,22 @@ def convolve_to_grid(kernel_func,
                 if np.size(targs) > 0:
                     # Generate the AW-kernels
                     # aCF = GK.akernel(i, times, uvw, image_params, obs_params, Mterm, Mterms_ij)
-                    time_mean = np.mean(wp_times[targs])
+                    lha_mean = np.mean(wp_times[targs])
+                    a_kernel = rotate_beam(mueller_term, lha_mean, obs_dec, obs_lat)
                     kernel_cache, conv_support = \
                         generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
-                                                          max_wpconv_support, oversampling, hankel_opt, interp_type)
+                                                          max_wpconv_support, oversampling, a_kernel, hankel_opt,
+                                                          interp_type, kernel_trunc_perc)
                 else:
                     continue
             else:
-                kernel_cache, conv_support = \
-                    generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
-                                                      max_wpconv_support, oversampling, hankel_opt, interp_type)
+                if use_wproj is True:
+                    kernel_cache, conv_support = \
+                        generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
+                                                          max_wpconv_support, oversampling, None,
+                                                          hankel_opt, interp_type, kernel_trunc_perc)
 
+            # Iterate through each visibility
             for idx in good_vis_idx[wp_low:wp_high]:
                 weight = vis_weights[idx]
                 # Skip this visibility if zero-weighted
@@ -490,7 +504,7 @@ def dht(f):
 
 
 def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, conv_support, oversampling,
-                                      hankel_opt=False, interp_type="linear"):
+                                      a_kernel=None, hankel_opt=False, interp_type="linear", kernel_trunc_perc=1.0):
     """
     Generate a cache of kernels at oversampled-pixel offsets for W-Projection.
 
@@ -504,8 +518,11 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         workarea_size (int): Workarea size for kernel generation.
         conv_support (int): Convolution kernel support size.
         oversampling (int): Oversampling ratio.
+        a_kernel (numpy.ndarray): Sampled A-kernel function.
         hankel_opt (bool): Use hankel transform optimisation.
         interp_type (string): Interpolation method (use "linear" or "cubic").
+        kernel_trunc_perc (float): Percentage of maximum amplitude from which
+            convolution kernel is truncated.
 
     Returns:
         dict: Dictionary mapping oversampling-pixel offsets to normalised gridding
@@ -514,30 +531,41 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
     """
     if oversampling > 1:
         assert (oversampling % 2) == 0
+    if a_kernel is not None:
+        assert hankel_opt is False
 
     kernel_cache = dict()
     workarea_centre = workarea_size // 2
     cache_size = (oversampling // 2 * 2) + 1
     oversampled_pixel_offsets = np.arange(cache_size) - oversampling // 2
 
-    assert (conv_support * 2 + 1) * oversampling < workarea_size
+    assert (conv_support * 2 + 1) < workarea_size
 
     if hankel_opt is False:
-        kernel_centre = workarea_centre
-        # Multiply AA and W kernels on image domain
-        comb_kernel_img_array = w_kernel.array * aa_kernel_img
+        kernel_centre = workarea_centre * oversampling
+        if a_kernel is not None:
+            # Multiply AA, W and A kernels on image domain
+            comb_kernel_img_array = w_kernel.array * aa_kernel_img * a_kernel
+        else:
+            # Multiply AA and W kernels on image domain
+            comb_kernel_img_array = w_kernel.array * aa_kernel_img
+
+        # Pad array for oversampling
+        comb_kernel_img_array = np.pad(comb_kernel_img_array, pad_width=int(workarea_size*(oversampling-1)//2),
+                                       mode='constant')
         # FFT - transform kernel to UV domain
         comb_kernel_array = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(comb_kernel_img_array)))
     else:
         ### Alternative method using Hankel transform ###
-        comb_kernel_img_radius = w_kernel.array * aa_kernel_img
+        comb_kernel_img_radius = np.zeros(workarea_centre*oversampling, dtype=complex)
+        comb_kernel_img_radius[0:workarea_centre] = w_kernel.array * aa_kernel_img
         comb_kernel_radius = dht(comb_kernel_img_radius)
 
         max_kernel_size = (conv_support * 2 + 1 + 1) * oversampling
         kernel_centre = max_kernel_size // 2
         x, y = np.meshgrid(range(max_kernel_size + 1), range(max_kernel_size + 1))
         r = np.sqrt((x - kernel_centre) ** 2 + (y - kernel_centre) ** 2)
-        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2)), 1 / (np.sqrt(2))),
+        f = interp1d(np.arange(0, workarea_centre * oversampling / (np.sqrt(2)), 1 / (np.sqrt(2))),
                      comb_kernel_radius, copy=False, kind=interp_type, bounds_error=False, fill_value=0.0,
                      assume_sorted=True)
         comb_kernel_array = f(r.flat).reshape(r.shape)
@@ -548,7 +576,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
                    kernel_centre + conv_support * oversampling + 1, oversampling)
     tmp_array = comb_kernel_array[yrange, xrange]
 
-    min_value = np.abs(tmp_array[conv_support, conv_support]) * 0.01
+    min_value = np.abs(tmp_array[conv_support, conv_support]) * kernel_trunc_perc/100.0
     for pos in range(0, conv_support + 1):
         if np.abs(tmp_array[conv_support, pos]) > min_value:
             break
@@ -570,3 +598,53 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
             kernel_cache[(x_step, y_step)] = conv_kernel_array
 
     return kernel_cache, trunc_conv_support
+
+
+def rotate_beam(beam, lha_mean, dec, lat):
+    """
+    Rotate beam (M-term) for A-projection using linear interpolation.
+
+    Args:
+        beam (numpy.ndarray): Sampled beam function (or M-term).
+        lha (float): Mean hour angle of the object, in decimal hours (0,24)
+        dec (float): Declination of the object, in degrees
+        lat (float): The latitude of the observer, in degrees
+
+    Returns:
+        numpy.ndarray: Rotated beam function
+    """
+
+    # Determine parallactic angle
+    pangle = parangle(lha_mean, float(dec), float(lat))
+    pbmin_r = beam.real[0, 0]
+    pbmin_i = beam.imag[0, 0]
+
+    # Rotate (use order-1 spline interpolation)
+    rbeam = np.empty_like(beam, dtype=complex)
+    rbeam.real = ndimage.interpolation.rotate(beam.real, pangle, reshape=False, mode='constant',
+                                              constant_values=(pbmin_r, pbmin_r), order=1)
+    rbeam.imag = ndimage.interpolation.rotate(beam.imag, pangle, reshape=False, mode='constant',
+                                              constant_values=(pbmin_i, pbmin_i), order=1)
+    return rbeam
+
+
+def parangle(ha, dec_d, lat_d):
+    """
+    Compute parallatic angle for beam rotation.
+
+    Args:
+        ha (float): Hour angle of the object, in decimal hours (0,24)
+        dec_d (float): Declination of the object, in degrees
+        lat_d (float): The latitude of the observer, in degrees
+
+    Returns:
+        float: parallactic angle in degrees
+    """
+    lat = np.radians(lat_d)
+    dec = np.radians(dec_d)
+    ha_r = np.radians(ha * 15.)
+    sin_eta_sin_z = np.cos(lat) * np.sin(ha)
+    cos_eta_sin_z = np.sin(lat) * np.cos(dec) - np.cos(lat) * np.sin(dec) * np.cos(ha_r)
+    eta = np.arctan2(sin_eta_sin_z, cos_eta_sin_z)
+
+    return np.degrees(eta)

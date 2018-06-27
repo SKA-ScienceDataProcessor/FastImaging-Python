@@ -27,8 +27,11 @@ def image_visibilities(
         hankel_opt=False,
         interp_type="linear",
         undersampling_opt=0,
+        kernel_trunc_perc=1.0,
         aproj_tinc=0.0,
         mueller_term=np.ones(1),
+        obs_dec=0.0,
+        obs_lat=0.0,
         progress_bar=None):
     """
     Args:
@@ -77,10 +80,14 @@ def image_visibilities(
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
             integer value.
+        kernel_trunc_perc (float): Percentage of maximum amplitude from which
+            convolution kernel is truncated.
         aproj_tinc (float): Time increment in hours to compute the A-kernel.
             Set zero to disable A-projection.
-        mueller_term (numpy.array): Term from Mueller matrix (defined each
-            image coordinate) used for A-projection.
+        mueller_term (numpy.array):  Mueller matrix term (defined each image
+            coordinate) used for A-projection.
+        obs_dec (float): Declination of observation pointing centre (in degrees)
+        obs_lat (float): Latitude of observation pointing centre (in degrees)
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
@@ -138,8 +145,11 @@ def image_visibilities(
                                              hankel_opt=hankel_opt,
                                              interp_type=interp_type,
                                              undersampling_opt=undersampling_opt,
+                                             kernel_trunc_perc=kernel_trunc_perc,
                                              aproj_tinc=aproj_tinc,
                                              mueller_term=mueller_term,
+                                             obs_dec=obs_dec,
+                                             obs_lat=obs_lat,
                                              progress_bar=progress_bar
                                              )
 
@@ -148,8 +158,8 @@ def image_visibilities(
     beam = np.real(fft_to_image_plane(sample_grid))
 
     # Generate gridding correction kernel
-    gcf_array = ImgDomKernel(kernel_func, image_size_int, oversampling=None, normalize=False,
-                             radial_line=False, analytic_gcf=analytic_gcf).array
+    gcf_array = ImgDomKernel(kernel_func, image_size_int, normalize=False, radial_line=False,
+                             analytic_gcf=analytic_gcf).array
 
     # Normalization factor:
     # We correct for the FFT scale factor of 1/image_size**2 by dividing by the image-domain AA-kernel

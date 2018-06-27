@@ -251,7 +251,7 @@ class SourceFindImage(object):
             island = Island(parent_data=self.data,
                             mask=island_mask,
                             params=init_params)
-            #self.calculate_moments(island)
+            self.calculate_moments(island)
             self.islands.append(island)
         logger.debug("... Done.")
 
