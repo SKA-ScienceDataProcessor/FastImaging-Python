@@ -192,77 +192,75 @@ def convolve_to_grid(kernel_func,
         support=conv_support, image_size=image_size,
         raise_if_bad=raise_bounds)
 
-    # Not exact gridding (may perform w-proj or a-proj)
+    # Compute W-Planes and image-domain AA-kernels for W-Projection
+    if use_wproj is True:
+
+        w_avg_values, w_planes_gvidx = compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median)
+
+        # Update number of planes
+        num_wplanes = len(w_avg_values)
+
+        # Calculate kernel working area size
+        undersampling_scale = 1
+        workarea_size = image_size
+
+        # Kernel undersampling optimization for speedup
+        if undersampling_opt > 0:
+            while (image_size // (undersampling_scale * 2 * undersampling_opt)) > (max_wpconv_support * 2 + 1):
+                undersampling_scale *= 2
+            # Check required conditions for the used size
+            assert (workarea_size % undersampling_scale) == 0
+            assert ((workarea_size // undersampling_scale) % 2) == 0
+            # Compute workarea size
+            workarea_size = image_size // undersampling_scale
+
+        if hankel_opt is True:
+            radial_line = True
+            if undersampling_scale > 1:
+                undersampling_scale = undersampling_scale // 2
+                workarea_size = workarea_size * 2
+        else:
+            radial_line = False
+
+        # Compute image-domain AA kernel
+        aa_kernel_img_array = ImgDomKernel(kernel_func, workarea_size, normalize=False, radial_line=radial_line,
+                                           analytic_gcf=analytic_gcf).array
+
+    else:
+        # Compute oversampled AA kernel cache
+        kernel_cache = populate_kernel_cache(kernel_func, aa_support, oversampling)
+        # Set 1 plane when W-projection is False (just to enter in gridding loop. W-projection is not performed)
+        num_wplanes = 1
+        w_planes_gvidx = [0, len(good_vis_idx)]
+
+    # Compute A-Projection time intervals
+    if use_aproj is True:
+        min_time = np.min(lha)
+        max_time = np.max(lha)
+        time_intervals = np.linspace(min_time, max_time, aproj_numtimesteps)
+        np.append(max_time + 1.0)
+        num_timesteps = aproj_numtimesteps
+        # Compute average lha value for each interval
+        lha_mean = []
+        vis_timestep = np.zeros_like(vis, dtype=int)
+        for ts in range(num_timesteps):
+            # Get visibilities within the current time range
+            targs = np.where(np.logical_and(lha[good_vis_idx] >= time_intervals[ts],
+                                            lha[good_vis_idx] < time_intervals[ts + 1]))
+            if np.size(targs) > 0:
+                lha_mean.append(np.mean(lha[good_vis_idx[targs]]))
+                vis_timestep[good_vis_idx[targs]] = ts
+
+        # Resize kernel
+        mueller_term = np.resize(mueller_term, (workarea_size, workarea_size))
+    else:
+        # Set 1 time step when A-projection is False (just to enter in gridding loop. A-projection is not performed)
+        num_timesteps = 1
+
+    # Not exact gridding
     if not exact:
         oversampled_offset = calculate_oversampled_kernel_indices(
             uv_frac, oversampling)
-
-        # Compute W-Planes and image-domain AA-kernels for W-Projection
-        if use_wproj is True:
-
-            w_avg_values, w_planes_idx = compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median)
-            # Add last element
-            w_planes_idx.append(len(vis)+1)
-
-            # Update number of planes
-            num_wplanes = len(w_avg_values)
-
-            # Calculate kernel working area size
-            undersampling_scale = 1
-            workarea_size = image_size
-
-            # Kernel undersampling optimization for speedup
-            if undersampling_opt > 0:
-                while (image_size // (undersampling_scale * 2 * undersampling_opt)) > (max_wpconv_support * 2 + 1):
-                    undersampling_scale *= 2
-                # Check required conditions for the used size
-                assert (workarea_size % undersampling_scale) == 0
-                assert ((workarea_size // undersampling_scale) % 2) == 0
-                # Compute workarea size
-                workarea_size = image_size // undersampling_scale
-
-            if hankel_opt is True:
-                radial_line = True
-                if undersampling_scale > 1:
-                    undersampling_scale = undersampling_scale // 2
-                    workarea_size = workarea_size * 2
-            else:
-                radial_line = False
-
-            # Compute image-domain AA kernel
-            aa_kernel_img_array = ImgDomKernel(kernel_func, workarea_size, normalize=False, radial_line=radial_line,
-                                               analytic_gcf=analytic_gcf).array
-
-        else:
-            # Compute oversampled AA kernel cache
-            kernel_cache = populate_kernel_cache(kernel_func, aa_support, oversampling)
-            # Set 1 plane when W-projection is False (just to enter in gridding loop. W-projection is not performed)
-            num_wplanes = 1
-            w_planes_idx = list(0, len(vis)+1)
-
-        # Compute A-Projection time intervals
-        if use_aproj is True:
-            min_time = np.min(lha)
-            max_time = np.max(lha)
-            time_intervals = np.linspace(min_time, max_time, aproj_numtimesteps)
-            np.append(max_time + 1.0)
-            num_timesteps = aproj_numtimesteps
-            # Compute average lha value for each interval
-            lha_mean = list()
-            vis_timestep = np.zeros_like(vis, dtype=int)
-            for ts in range(num_timesteps):
-                # Get visibilities within the current time range
-                targs = np.where(np.logical_and(lha[good_vis_idx] >= time_intervals[ts],
-                                                lha[good_vis_idx] < time_intervals[ts + 1]))
-                if np.size(targs) > 0:
-                    lha_mean.append(np.mean(lha[targs]))
-                    vis_timestep[targs] = ts
-
-            # Resize kernel
-            mueller_term = np.resize(mueller_term, (workarea_size, workarea_size))
-        else:
-            # Set 1 time step when A-projection is False (just to enter in gridding loop. A-projection is not performed)
-            num_timesteps = 1
 
     # Create gridding arrays
     vis_grid = np.zeros((image_size, image_size), dtype=np.complex)
@@ -278,8 +276,8 @@ def convolve_to_grid(kernel_func,
 
     # Iterate through each w-plane
     for wplane in range(num_wplanes):
-        wp_low = w_planes_idx[wplane]
-        wp_high = w_planes_idx[wplane + 1]
+        w_gvlow = w_planes_gvidx[wplane]
+        w_gvhigh = w_planes_gvidx[wplane + 1]
 
         if use_wproj is True:
             # Generate W-kernel
@@ -290,7 +288,7 @@ def convolve_to_grid(kernel_func,
         for ts in range(num_timesteps):
             if use_aproj is True:
                 # Check if there are visibilities within this time range
-                targs = np.where(vis_timestep[wp_low:wp_high] == ts)
+                targs = np.where(vis_timestep[good_vis_idx[w_gvlow:w_gvhigh]] == ts)
                 if np.size(targs) > 0:
                     # Generate the AW-kernels
                     a_kernel = rotate_beam(mueller_term, lha_mean[ts], obs_dec, obs_lat)
@@ -308,7 +306,7 @@ def convolve_to_grid(kernel_func,
                                                           hankel_opt, interp_type, kernel_trunc_perc)
 
             # Iterate through each visibility
-            for idx in good_vis_idx[wp_low:wp_high]:
+            for idx in good_vis_idx[w_gvlow:w_gvhigh]:
                 weight = vis_weights[idx]
                 # Skip this visibility if zero-weighted
                 if weight == 0.:
@@ -532,21 +530,22 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
 
     if hankel_opt is False:
         kernel_centre = workarea_centre * oversampling
+        comb_kernel_img_array = np.zeros((workarea_size*oversampling, workarea_size*oversampling), dtype=np.complex)
+        offset=workarea_size*(oversampling-1)//2
         if a_kernel is not None:
             # Multiply AA, W and A kernels on image domain
-            comb_kernel_img_array = w_kernel.array * aa_kernel_img * a_kernel
+            comb_kernel_img_array[offset:(offset+workarea_size), offset:(offset+workarea_size)] = \
+                w_kernel.array * aa_kernel_img * a_kernel
         else:
             # Multiply AA and W kernels on image domain
-            comb_kernel_img_array = w_kernel.array * aa_kernel_img
+            comb_kernel_img_array[offset:(offset+workarea_size), offset:(offset+workarea_size)] = \
+                w_kernel.array * aa_kernel_img
 
-        # Pad array for oversampling
-        comb_kernel_img_array = np.pad(comb_kernel_img_array, pad_width=int(workarea_size*(oversampling-1)//2),
-                                       mode='constant')
         # FFT - transform kernel to UV domain
         comb_kernel_array = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(comb_kernel_img_array)))
     else:
         ### Alternative method using Hankel transform ###
-        comb_kernel_img_radius = np.zeros(workarea_centre*oversampling, dtype=complex)
+        comb_kernel_img_radius = np.zeros(workarea_centre*oversampling, dtype=np.complex)
         comb_kernel_img_radius[0:workarea_centre] = w_kernel.array * aa_kernel_img
         comb_kernel_radius = dht(comb_kernel_img_radius)
 
@@ -595,8 +594,8 @@ def compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median):
     # Define w-planes
     plane_size = np.ceil(num_gvis / num_wplanes)
 
-    w_avg_values = list()
-    w_planes_idx = list()
+    w_avg_values = []
+    w_planes_gvidx = []
 
     for idx in range(0, num_wplanes):
         begin = int(idx * plane_size)
@@ -606,12 +605,14 @@ def compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median):
             w_avg_values.append(np.median(np.abs(w_lambda[indexes])))
         else:
             w_avg_values.append(np.average(np.abs(w_lambda[indexes])))
-        w_planes_idx.append(begin)
+        w_planes_gvidx.append(begin)
 
         if end >= num_gvis:
             break
 
-    return w_avg_values, w_planes_idx
+    w_planes_gvidx.append(num_gvis)
+
+    return w_avg_values, w_planes_gvidx
 
 
 def rotate_beam(beam, lha_mean, dec, lat):

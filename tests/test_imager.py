@@ -30,7 +30,7 @@ def test_normalization():
                                      image_size=n_image,
                                      cell_size=cell_size,
                                      kernel_func=kernel_func,
-                                     kernel_support=3,
+                                     kernel_support=support,
                                      )
 
     assert approx(beam.max()) == 1.0
@@ -44,7 +44,7 @@ def test_normalization():
                                      image_size=n_image,
                                      cell_size=cell_size,
                                      kernel_func=kernel_func,
-                                     kernel_support=3,
+                                     kernel_support=support,
                                      )
 
     assert approx(beam.max()) == 1.0

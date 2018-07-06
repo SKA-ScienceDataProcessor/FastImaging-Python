@@ -169,7 +169,7 @@ def test_small_pillbox():
 def test_multiple_complex_vis():
     # Quick sanity check for multiple visibilities, complex_ this time:
     n_image = 8
-    support = 2
+    support = 1
 
     uv = np.array([(-2., 1),
                    (1., -1),
@@ -214,7 +214,7 @@ def test_nearby_complex_vis():
     # Quick sanity check for multiple visibilities, kernel footprints
     # overlapping:
     n_image = 8
-    support = 2
+    support = 1
 
     uv = np.array([(-2., 1),
                    (0., -1),

@@ -44,7 +44,7 @@ def cli(output_npz, nstep):
     obs_times = transit_time + np.linspace(-1, 1, nstep) * u.hr
     logger.info("Generating UVW-baselines for {} timesteps".format(nstep))
     with Tqdm() as progress_bar:
-        uvw_m = telescope.uvw_tracking_skycoord(
+        uvw_m, lha = telescope.uvw_tracking_skycoord(
             pointing_centre, obs_times,
             progress_bar=progress_bar
         )
