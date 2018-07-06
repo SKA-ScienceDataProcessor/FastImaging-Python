@@ -13,7 +13,6 @@ def image_visibilities(
         vis,
         vis_weights,
         uvw_lambda,
-        lha,
         image_size,
         cell_size,
         kernel_func,
@@ -28,10 +27,11 @@ def image_visibilities(
         interp_type="linear",
         undersampling_opt=0,
         kernel_trunc_perc=1.0,
-        aproj_tinc=0.0,
-        mueller_term=np.ones(1),
+        aproj_numtimesteps=0,
         obs_dec=0.0,
         obs_lat=0.0,
+        lha=np.ones(1,),
+        mueller_term=np.ones((1, 1)),
         progress_bar=None):
     """
     Args:
@@ -43,9 +43,6 @@ def image_visibilities(
             multiples of wavelength.
             2d array of ``np.float_``, shape: ``(n_vis, 3)``.
             Assumed ordering is u,v,w i.e. ``u,v,w = uvw[idx]``
-        lha (numpy.ndarray): Local hour angle of visibilities.
-            LHA=0 is transit, LHA=-6h is rising, LHA=+6h is setting.
-            1d array, shape: `(n_vis,)`.
         image_size (astropy.units.Quantity): Width of the image in pixels.
             e.g. ``1024 * u.pixel``.
             NB we assume the pixel ``[image_size//2,image_size//2]``
@@ -82,12 +79,15 @@ def image_visibilities(
             integer value.
         kernel_trunc_perc (float): Percentage of maximum amplitude from which
             convolution kernel is truncated.
-        aproj_tinc (float): Time increment in hours to compute the A-kernel.
+        aproj_numtimesteps (int): Number of time steps used for A-projection.
             Set zero to disable A-projection.
-        mueller_term (numpy.array):  Mueller matrix term (defined each image
-            coordinate) used for A-projection.
         obs_dec (float): Declination of observation pointing centre (in degrees)
         obs_lat (float): Latitude of observation pointing centre (in degrees)
+        lha (numpy.ndarray): Local hour angle of visibilities.
+            LHA=0 is transit, LHA=-6h is rising, LHA=+6h is setting.
+            1d array, shape: `(n_vis,)`.
+        mueller_term (numpy.array):  Mueller matrix term (defined each image
+            coordinate) used for A-projection.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
@@ -133,7 +133,6 @@ def image_visibilities(
                                              uv=uv_in_pixels,
                                              vis=vis,
                                              vis_weights=vis_weights,
-                                             lha=lha,
                                              exact=kernel_exact,
                                              oversampling=kernel_oversampling,
                                              num_wplanes=num_wplanes,
@@ -146,10 +145,11 @@ def image_visibilities(
                                              interp_type=interp_type,
                                              undersampling_opt=undersampling_opt,
                                              kernel_trunc_perc=kernel_trunc_perc,
-                                             aproj_tinc=aproj_tinc,
-                                             mueller_term=mueller_term,
+                                             aproj_numtimesteps=aproj_numtimesteps,
                                              obs_dec=obs_dec,
                                              obs_lat=obs_lat,
+                                             lha=lha,
+                                             mueller_term=mueller_term,
                                              progress_bar=progress_bar
                                              )
 

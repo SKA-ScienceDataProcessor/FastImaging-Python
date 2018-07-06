@@ -22,7 +22,6 @@ def convolve_to_grid(kernel_func,
                      uv,
                      vis,
                      vis_weights,
-                     lha,
                      exact=True,
                      oversampling=None,
                      num_wplanes=None,
@@ -35,10 +34,11 @@ def convolve_to_grid(kernel_func,
                      interp_type="linear",
                      undersampling_opt=0,
                      kernel_trunc_perc=1.0,
-                     aproj_tinc=0.0,
-                     mueller_term=np.ones(1),
+                     aproj_numtimesteps=0,
                      obs_dec=0.0,
                      obs_lat=0.0,
+                     lha=np.ones(1, ),
+                     mueller_term=np.ones((1, 1)),
                      raise_bounds=False,
                      progress_bar=None):
     """
@@ -83,8 +83,6 @@ def convolve_to_grid(kernel_func,
             1d array, shape: `(n_vis,)`.
         vis_weights (numpy.ndarray): Visibility weights.
             1d array, shape: `(n_vis,)`.
-        lha (numpy.ndarray): Local hour angle of visibilities.
-            1d array, shape: `(n_vis,)`.
         exact (bool): Calculate exact kernel-values for every UV-sample.
         oversampling (int): Controls kernel-generation if ``exact==False``.
             Larger values give a finer-sampled set of pre-cached kernels.
@@ -109,12 +107,14 @@ def convolve_to_grid(kernel_func,
             integer value.
         kernel_trunc_perc (float): Percentage of maximum amplitude from which
             convolution kernel is truncated.
-        aproj_tinc (float): Time increment in hours to compute the A-kernel.
+        aproj_numtimesteps (int): Number of time steps used for A-projection.
             Set zero to disable A-projection.
-        mueller_term (numpy.array):  Mueller matrix term (defined each image
-            coordinate) used for A-projection.
         obs_dec (float): Declination of observation pointing centre (in degrees)
         obs_lat (float): Latitude of observation pointing centre (in degrees)
+        lha (numpy.ndarray): Local hour angle of visibilities.
+            1d array, shape: `(n_vis,)`.
+        mueller_term (numpy.array):  Mueller matrix term (defined each image
+            coordinate) used for A-projection.
         raise_bounds (bool): Raise an exception if any of the UV samples lie
             outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
@@ -140,7 +140,7 @@ def convolve_to_grid(kernel_func,
     else:
         use_wproj = False
 
-    if aproj_tinc > 0.0:
+    if aproj_numtimesteps > 0:
         use_aproj = True
         assert exact is False
         assert use_wproj is True
@@ -167,7 +167,8 @@ def convolve_to_grid(kernel_func,
         uv = uv[sort_arg]
         vis = vis[sort_arg]
         vis_weights = vis_weights[sort_arg]
-        lha = lha[sort_arg]
+        if use_aproj is True:
+            lha = lha[sort_arg]
 
     # Calculate nearest integer pixel co-ords ('rounded positions')
     uv_rounded = np.around(uv)
@@ -191,34 +192,20 @@ def convolve_to_grid(kernel_func,
         support=conv_support, image_size=image_size,
         raise_if_bad=raise_bounds)
 
+    # Not exact gridding (may perform w-proj or a-proj)
     if not exact:
         oversampled_offset = calculate_oversampled_kernel_indices(
             uv_frac, oversampling)
 
-        # Compute W-Planes and convolution kernels for W-Projection
+        # Compute W-Planes and image-domain AA-kernels for W-Projection
         if use_wproj is True:
-            num_gvis = len(good_vis_idx)
 
-            # Define w-planes
-            plane_size = np.ceil(num_gvis / num_wplanes)
+            w_avg_values, w_planes_idx = compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median)
+            # Add last element
+            w_planes_idx.append(len(vis)+1)
 
-            w_avg_values = np.empty(num_wplanes)
-            w_planes_firstidx = np.empty(num_wplanes, dtype=int)
-            w_planes_lastidx = np.empty(num_wplanes, dtype=int)
-
-            for idx in range(0, num_wplanes):
-                begin = int(idx * plane_size)
-                end = int(min((idx + 1) * plane_size, num_gvis))
-                indexes = good_vis_idx[begin:end]
-                if wplanes_median is True:
-                    w_avg_values[idx] = np.median(np.abs(w_lambda[indexes]))
-                else:
-                    w_avg_values[idx] = np.average(np.abs(w_lambda[indexes]))
-                w_planes_firstidx[idx] = begin
-                w_planes_lastidx[idx] = end
-
-                if end >= num_gvis:
-                    break
+            # Update number of planes
+            num_wplanes = len(w_avg_values)
 
             # Calculate kernel working area size
             undersampling_scale = 1
@@ -249,12 +236,33 @@ def convolve_to_grid(kernel_func,
         else:
             # Compute oversampled AA kernel cache
             kernel_cache = populate_kernel_cache(kernel_func, aa_support, oversampling)
-            # Set 1 plane when W-projection is False (just to enable gridding)
+            # Set 1 plane when W-projection is False (just to enter in gridding loop. W-projection is not performed)
             num_wplanes = 1
-            w_planes_firstidx = np.empty(num_wplanes, dtype=int)
-            w_planes_lastidx = np.empty(num_wplanes, dtype=int)
-            w_planes_firstidx[0] = 0
-            w_planes_lastidx[0] = len(good_vis_idx)
+            w_planes_idx = list(0, len(vis)+1)
+
+        # Compute A-Projection time intervals
+        if use_aproj is True:
+            min_time = np.min(lha)
+            max_time = np.max(lha)
+            time_intervals = np.linspace(min_time, max_time, aproj_numtimesteps)
+            np.append(max_time + 1.0)
+            num_timesteps = aproj_numtimesteps
+            # Compute average lha value for each interval
+            lha_mean = list()
+            vis_timestep = np.zeros_like(vis, dtype=int)
+            for ts in range(num_timesteps):
+                # Get visibilities within the current time range
+                targs = np.where(np.logical_and(lha[good_vis_idx] >= time_intervals[ts],
+                                                lha[good_vis_idx] < time_intervals[ts + 1]))
+                if np.size(targs) > 0:
+                    lha_mean.append(np.mean(lha[targs]))
+                    vis_timestep[targs] = ts
+
+            # Resize kernel
+            mueller_term = np.resize(mueller_term, (workarea_size, workarea_size))
+        else:
+            # Set 1 time step when A-projection is False (just to enter in gridding loop. A-projection is not performed)
+            num_timesteps = 1
 
     # Create gridding arrays
     vis_grid = np.zeros((image_size, image_size), dtype=np.complex)
@@ -268,43 +276,24 @@ def convolve_to_grid(kernel_func,
     if progress_bar is not None:
         reset_progress_bar(progress_bar, len(good_vis_idx), 'Gridding visibilities')
 
-    if use_aproj is True:
-        min_time = np.min(lha)
-        max_time = np.max(lha)
-        time_intervals = np.arange(min_time, max_time + aproj_tinc, aproj_tinc)
-        if time_intervals[-1] <= max_time:
-            np.append(time_intervals, time_intervals[-1] + aproj_tinc)
-        time_steps = len(time_intervals) - 1
-        mueller_term = np.resize(mueller_term, (workarea_size, workarea_size))
-    else:
-        min_time = np.min(lha)
-        max_time = np.max(lha)
-        time_steps = 1
-        time_intervals = [min_time, max_time + aproj_tinc]
-
     # Iterate through each w-plane
     for wplane in range(num_wplanes):
-        wp_low = w_planes_firstidx[wplane]
-        wp_high = w_planes_lastidx[wplane]
+        wp_low = w_planes_idx[wplane]
+        wp_high = w_planes_idx[wplane + 1]
 
         if use_wproj is True:
             # Generate W-kernel
             w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
                                scale=undersampling_scale, radial_line=radial_line)
 
-            if use_aproj is True:
-                wp_times = lha[wp_low:wp_high]
-
         # Iterate through each time step
-        for ts in range(time_steps):
+        for ts in range(num_timesteps):
             if use_aproj is True:
                 # Check if there are visibilities within this time range
-                targs = np.where(np.logical_and(wp_times >= time_intervals[ts], wp_times < time_intervals[ts + 1]))
+                targs = np.where(vis_timestep[wp_low:wp_high] == ts)
                 if np.size(targs) > 0:
                     # Generate the AW-kernels
-                    # aCF = GK.akernel(i, times, uvw, image_params, obs_params, Mterm, Mterms_ij)
-                    lha_mean = np.mean(wp_times[targs])
-                    a_kernel = rotate_beam(mueller_term, lha_mean, obs_dec, obs_lat)
+                    a_kernel = rotate_beam(mueller_term, lha_mean[ts], obs_dec, obs_lat)
                     kernel_cache, conv_support = \
                         generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
                                                           max_wpconv_support, oversampling, a_kernel, hankel_opt,
@@ -326,9 +315,9 @@ def convolve_to_grid(kernel_func,
                     continue
 
                 # Skip this visibility if using A-projection and it does not belong to the time interval
-                if use_aproj is True and not np.logical_and(lha[idx] >= time_intervals[ts],
-                                                            lha[idx] < time_intervals[ts+1]):
-                    continue
+                if use_aproj is True:
+                    if not vis_timestep[idx] == ts:
+                        continue
 
                 # Integer positions of the kernel
                 gc_x, gc_y = kernel_centre_on_grid[idx]
@@ -598,6 +587,31 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
             kernel_cache[(x_step, y_step)] = conv_kernel_array
 
     return kernel_cache, trunc_conv_support
+
+
+def compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median):
+    num_gvis = len(good_vis_idx)
+
+    # Define w-planes
+    plane_size = np.ceil(num_gvis / num_wplanes)
+
+    w_avg_values = list()
+    w_planes_idx = list()
+
+    for idx in range(0, num_wplanes):
+        begin = int(idx * plane_size)
+        end = int(min((idx + 1) * plane_size, num_gvis))
+        indexes = good_vis_idx[begin:end]
+        if wplanes_median is True:
+            w_avg_values.append(np.median(np.abs(w_lambda[indexes])))
+        else:
+            w_avg_values.append(np.average(np.abs(w_lambda[indexes])))
+        w_planes_idx.append(begin)
+
+        if end >= num_gvis:
+            break
+
+    return w_avg_values, w_planes_idx
 
 
 def rotate_beam(beam, lha_mean, dec, lat):

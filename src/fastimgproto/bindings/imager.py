@@ -1,4 +1,5 @@
 import astropy.units as u
+import numpy as np
 
 import fastimgproto.gridder.conv_funcs as kfuncs
 
@@ -61,7 +62,13 @@ def cpp_image_visibilities(vis,
                            hankel_opt=False,
                            undersampling_opt=0,
                            kernel_trunc_perc=0.0,
-                           interp_type=stp_python.InterpType.LINEAR):
+                           interp_type=stp_python.InterpType.LINEAR,
+                           aproj_numtimesteps=0,
+                           obs_dec=0.0,
+                           obs_lat=0.0,
+                           lha=np.ones(1,),
+                           mueller_term=np.ones((1,1)),
+):
     """
     Convenience wrapper over _cpp_image_visibilities.
 
@@ -122,6 +129,15 @@ def cpp_image_visibilities(vis,
         interp_type (enum): Interpolation type to be used for kernel generation
             step in the Hankel Transorm. Available options are: "LINEAR", "COSINE"
             and "CUBIC".
+        aproj_numtimesteps (int): Number of time steps used for A-projection.
+            Set zero to disable A-projection.
+        obs_dec (float): Declination of observation pointing centre (in degrees)
+        obs_lat (float): Latitude of observation pointing centre (in degrees)
+        lha (numpy.ndarray): Local hour angle of visibilities.
+            LHA=0 is transit, LHA=-6h is rising, LHA=+6h is setting.
+            1d array, shape: `(n_vis,)`.
+        mueller_term (numpy.array):  Mueller matrix term (defined each image
+            coordinate) used for A-projection.
 
     Returns:
         tuple: (image, beam)
@@ -162,7 +178,12 @@ def cpp_image_visibilities(vis,
         hankel_opt,
         undersampling_opt,
         kernel_trunc_perc,
-        interp_type
+        interp_type,
+        aproj_numtimesteps,
+        obs_dec,
+        obs_lat,
+        lha,
+        mueller_term
     )
 
     return image, beam
