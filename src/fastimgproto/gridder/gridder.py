@@ -185,6 +185,8 @@ def convolve_to_grid(kernel_func,
     else:
         conv_support = aa_support
 
+    assert((conv_support * 2 + 1) < image_size)
+
     # Check if any of our kernel placements will overlap / lie outside the
     # grid edge.
     good_vis_idx = _bounds_check_kernel_centre_locations(
@@ -201,23 +203,23 @@ def convolve_to_grid(kernel_func,
         num_wplanes = len(w_avg_values)
 
         # Calculate kernel working area size
-        undersampling_scale = 1
+        undersampling_ratio = 1
         workarea_size = image_size
 
         # Kernel undersampling optimization for speedup
         if undersampling_opt > 0:
-            while (image_size // (undersampling_scale * 2 * undersampling_opt)) > (max_wpconv_support * 2 + 1):
-                undersampling_scale *= 2
+            while (image_size // (undersampling_ratio * 2 * undersampling_opt)) > (max_wpconv_support * 2 + 1):
+                undersampling_ratio *= 2
             # Check required conditions for the used size
-            assert (workarea_size % undersampling_scale) == 0
-            assert ((workarea_size // undersampling_scale) % 2) == 0
+            assert (workarea_size % undersampling_ratio) == 0
+            assert ((workarea_size // undersampling_ratio) % 2) == 0
             # Compute workarea size
-            workarea_size = image_size // undersampling_scale
+            workarea_size = image_size // undersampling_ratio
 
         if hankel_opt is True:
             radial_line = True
-            if undersampling_scale > 1:
-                undersampling_scale = undersampling_scale // 2
+            if undersampling_ratio > 1:
+                undersampling_ratio = undersampling_ratio // 2
                 workarea_size = workarea_size * 2
         else:
             radial_line = False
@@ -237,9 +239,9 @@ def convolve_to_grid(kernel_func,
     if use_aproj is True:
         min_time = np.min(lha)
         max_time = np.max(lha)
-        time_intervals = np.linspace(min_time, max_time, aproj_numtimesteps)
-        np.append(max_time + 1.0)
         num_timesteps = aproj_numtimesteps
+        tstep_size = (max_time-min_time)/num_timesteps
+        time_intervals = np.linspace(min_time-tstep_size/2, max_time+tstep_size/2, aproj_numtimesteps+1)
         # Compute average lha value for each interval
         lha_mean = []
         vis_timestep = np.zeros_like(vis, dtype=int)
@@ -250,22 +252,24 @@ def convolve_to_grid(kernel_func,
             if np.size(targs) > 0:
                 lha_mean.append(np.mean(lha[good_vis_idx[targs]]))
                 vis_timestep[good_vis_idx[targs]] = ts
+            else:
+                lha_mean.append(0.0)
 
         # Resize kernel
-        mueller_term = np.resize(mueller_term, (workarea_size, workarea_size))
+        mtsize = np.size(mueller_term, 0)
+        mueller_term_resized = ndimage.zoom(mueller_term, float(workarea_size)/float(mtsize), order=1)
+        assert np.size(mueller_term_resized, 0) == workarea_size
     else:
         # Set 1 time step when A-projection is False (just to enter in gridding loop. A-projection is not performed)
         num_timesteps = 1
 
     # Not exact gridding
     if not exact:
-        oversampled_offset = calculate_oversampled_kernel_indices(
-            uv_frac, oversampling)
+        oversampled_offset = calculate_oversampled_kernel_indices(uv_frac, oversampling)
 
     # Create gridding arrays
     vis_grid = np.zeros((image_size, image_size), dtype=np.complex)
-    # At the same time as we grid the visibilities, we track the grid-sampling
-    # weights:
+    # At the same time as we grid the visibilities, we track the grid-sampling weights:
     sampling_grid = np.zeros_like(vis_grid)
     # We will compose the sample grid of floats or complex to match input dtype:
     typed_one = np.array(1, dtype=np.complex)
@@ -282,22 +286,17 @@ def convolve_to_grid(kernel_func,
         if use_wproj is True:
             # Generate W-kernel
             w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
-                               scale=undersampling_scale, radial_line=radial_line)
+                               undersampling=undersampling_ratio, radial_line=radial_line)
 
         # Iterate through each time step
         for ts in range(num_timesteps):
             if use_aproj is True:
-                # Check if there are visibilities within this time range
-                targs = np.where(vis_timestep[good_vis_idx[w_gvlow:w_gvhigh]] == ts)
-                if np.size(targs) > 0:
-                    # Generate the AW-kernels
-                    a_kernel = rotate_beam(mueller_term, lha_mean[ts], obs_dec, obs_lat)
-                    kernel_cache, conv_support = \
-                        generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
-                                                          max_wpconv_support, oversampling, a_kernel, hankel_opt,
-                                                          interp_type, kernel_trunc_perc)
-                else:
-                    continue
+                # Generate the AW-kernels
+                a_kernel = rotate_beam(mueller_term_resized, lha_mean[ts], obs_dec, obs_lat)
+                kernel_cache, conv_support = \
+                    generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
+                                                      max_wpconv_support, oversampling, a_kernel, hankel_opt,
+                                                      interp_type, kernel_trunc_perc)
             else:
                 if use_wproj is True:
                     kernel_cache, conv_support = \
@@ -521,63 +520,73 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
     if a_kernel is not None:
         assert hankel_opt is False
 
-    kernel_cache = dict()
-    workarea_centre = workarea_size // 2
-    cache_size = (oversampling // 2 * 2) + 1
-    oversampled_pixel_offsets = np.arange(cache_size) - oversampling // 2
-
     assert (conv_support * 2 + 1) < workarea_size
 
+    wkernel_size = workarea_size
+    workarea_size = workarea_size * oversampling
+    workarea_centre = workarea_size // 2
+    kernel_cache = dict()
+    cache_size = (oversampling // 2 * 2) + 1
+    oversampled_pixel_offsets = np.arange(cache_size) - oversampling // 2
+    trunc_conv_sup = conv_support
+
     if hankel_opt is False:
-        kernel_centre = workarea_centre * oversampling
-        comb_kernel_img_array = np.zeros((workarea_size*oversampling, workarea_size*oversampling), dtype=np.complex)
-        offset=workarea_size*(oversampling-1)//2
+        kernel_centre = workarea_centre
+        comb_kernel_img_array = np.zeros((workarea_size, workarea_size), dtype=np.complex)
+        offset = wkernel_size*(oversampling-1)//2
         if a_kernel is not None:
             # Multiply AA, W and A kernels on image domain
-            comb_kernel_img_array[offset:(offset+workarea_size), offset:(offset+workarea_size)] = \
+            comb_kernel_img_array[offset:(offset + wkernel_size), offset:(offset + wkernel_size)] = \
                 w_kernel.array * aa_kernel_img * a_kernel
         else:
             # Multiply AA and W kernels on image domain
-            comb_kernel_img_array[offset:(offset+workarea_size), offset:(offset+workarea_size)] = \
+            comb_kernel_img_array[offset:(offset + wkernel_size), offset:(offset + wkernel_size)] = \
                 w_kernel.array * aa_kernel_img
 
         # FFT - transform kernel to UV domain
         comb_kernel_array = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(comb_kernel_img_array)))
+
+        # Find truncate position
+        if kernel_trunc_perc > 0.0:
+            min_value = np.abs(comb_kernel_array[kernel_centre, kernel_centre]) * kernel_trunc_perc / 100.0
+            for pos in reversed(range(1, conv_support + 1)):
+                if np.abs(comb_kernel_array[kernel_centre, kernel_centre + pos * oversampling]) > min_value:
+                    break
+            trunc_conv_sup = pos
+
     else:
-        ### Alternative method using Hankel transform ###
-        comb_kernel_img_radius = np.zeros(workarea_centre*oversampling, dtype=np.complex)
-        comb_kernel_img_radius[0:workarea_centre] = w_kernel.array * aa_kernel_img
+        # Alternative method using Hankel transform #
+        comb_kernel_img_radius = np.zeros(workarea_centre, dtype=np.complex)
+        comb_kernel_img_radius[0:wkernel_size//2] = w_kernel.array * aa_kernel_img
         comb_kernel_radius = dht(comb_kernel_img_radius)
 
-        max_kernel_size = (conv_support * 2 + 1 + 1) * oversampling
+        # Find truncate position
+        if kernel_trunc_perc > 0.0:
+            min_value = np.abs(comb_kernel_radius[0]) * kernel_trunc_perc / 100.0
+            for pos in reversed(range(1, conv_support + 1)):
+                if np.abs(comb_kernel_radius[pos * oversampling]) > min_value:
+                    break
+            trunc_conv_sup = min(int(np.ceil(pos * np.sqrt(2))), conv_support)
+
+        # Interpolate
+        max_kernel_size = (trunc_conv_sup * 2 + 1 + 1) * oversampling
         kernel_centre = max_kernel_size // 2
-        x, y = np.meshgrid(range(max_kernel_size + 1), range(max_kernel_size + 1))
+        x, y = np.meshgrid(range(max_kernel_size), range(max_kernel_size))
         r = np.sqrt((x - kernel_centre) ** 2 + (y - kernel_centre) ** 2)
-        f = interp1d(np.arange(0, workarea_centre * oversampling / (np.sqrt(2)), 1 / (np.sqrt(2))),
+        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2)), 1 / (np.sqrt(2))),
                      comb_kernel_radius, copy=False, kind=interp_type, bounds_error=False, fill_value=0.0,
                      assume_sorted=True)
         comb_kernel_array = f(r.flat).reshape(r.shape)
 
-    xrange = slice(kernel_centre - conv_support * oversampling,
-                   kernel_centre + conv_support * oversampling + 1, oversampling)
-    yrange = slice(kernel_centre - conv_support * oversampling,
-                   kernel_centre + conv_support * oversampling + 1, oversampling)
-    tmp_array = comb_kernel_array[yrange, xrange]
-
-    min_value = np.abs(tmp_array[conv_support, conv_support]) * kernel_trunc_perc/100.0
-    for pos in range(0, conv_support + 1):
-        if np.abs(tmp_array[conv_support, pos]) > min_value:
-            break
-    trunc_conv_support = max(1, conv_support - pos)
-    assert trunc_conv_support <= conv_support
+    assert trunc_conv_sup <= conv_support
 
     # Generate kernel cache
     for x_step in oversampled_pixel_offsets:
         for y_step in oversampled_pixel_offsets:
-            xrange = slice(kernel_centre - trunc_conv_support * oversampling - x_step,
-                           kernel_centre + trunc_conv_support * oversampling - x_step + 1, oversampling)
-            yrange = slice(kernel_centre - trunc_conv_support * oversampling - y_step,
-                           kernel_centre + trunc_conv_support * oversampling - y_step + 1, oversampling)
+            xrange = slice(kernel_centre - trunc_conv_sup * oversampling - x_step,
+                           kernel_centre + trunc_conv_sup * oversampling - x_step + 1, oversampling)
+            yrange = slice(kernel_centre - trunc_conv_sup * oversampling - y_step,
+                           kernel_centre + trunc_conv_sup * oversampling - y_step + 1, oversampling)
             conv_kernel_array = comb_kernel_array[yrange, xrange]
             array_sum = np.real(conv_kernel_array.sum())
             conv_kernel_array = conv_kernel_array / array_sum
@@ -585,7 +594,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
             # Store kernel on cache
             kernel_cache[(x_step, y_step)] = conv_kernel_array
 
-    return kernel_cache, trunc_conv_support
+    return kernel_cache, trunc_conv_sup
 
 
 def compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median):
@@ -636,10 +645,8 @@ def rotate_beam(beam, lha_mean, dec, lat):
 
     # Rotate (use order-1 spline interpolation)
     rbeam = np.empty_like(beam, dtype=complex)
-    rbeam.real = ndimage.interpolation.rotate(beam.real, pangle, reshape=False, mode='constant',
-                                              constant_values=(pbmin_r, pbmin_r), order=1)
-    rbeam.imag = ndimage.interpolation.rotate(beam.imag, pangle, reshape=False, mode='constant',
-                                              constant_values=(pbmin_i, pbmin_i), order=1)
+    rbeam.real = ndimage.interpolation.rotate(beam.real, pangle, reshape=False, mode='constant', cval=pbmin_r, order=1)
+    rbeam.imag = ndimage.interpolation.rotate(beam.imag, pangle, reshape=False, mode='constant', cval=pbmin_i, order=1)
     return rbeam
 
 
@@ -655,11 +662,11 @@ def parangle(ha, dec_d, lat_d):
     Returns:
         float: parallactic angle in degrees
     """
-    lat = np.radians(lat_d)
-    dec = np.radians(dec_d)
+    lat_r = np.radians(lat_d)
+    dec_r = np.radians(dec_d)
     ha_r = np.radians(ha * 15.)
-    sin_eta_sin_z = np.cos(lat) * np.sin(ha)
-    cos_eta_sin_z = np.sin(lat) * np.cos(dec) - np.cos(lat) * np.sin(dec) * np.cos(ha_r)
+    sin_eta_sin_z = np.cos(lat_r) * np.sin(ha_r)
+    cos_eta_sin_z = np.sin(lat_r) * np.cos(dec_r) - np.cos(lat_r) * np.sin(dec_r) * np.cos(ha_r)
     eta = np.arctan2(sin_eta_sin_z, cos_eta_sin_z)
 
     return np.degrees(eta)

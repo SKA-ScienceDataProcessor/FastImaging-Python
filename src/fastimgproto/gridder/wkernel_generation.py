@@ -13,7 +13,7 @@ class WKernel(object):
         array_size (int): Defines the size of the kernel.
         cell_size (float): Angular-width in radians of a synthesized pixel
             in the image to be created.
-        scale (int): Scale ratio for generating the kernel distance positions.
+        undersampling (int): Scale ratio for generating the kernel distance positions.
             The kernel shape shrinks when scale is larger than 1.
             Defaults to 1 if not given or ``scale=None`` is passed.
         radial_line (bool): Computes only the semi-diagonal line of the kernel rather
@@ -25,10 +25,10 @@ class WKernel(object):
 
     """
 
-    def __init__(self, w_value, array_size, cell_size, scale=None, radial_line=False):
+    def __init__(self, w_value, array_size, cell_size, undersampling=None, radial_line=False):
 
-        if scale is None:
-            scale = 1
+        if undersampling is None:
+            undersampling = 1
 
         assert isinstance(array_size, int)
         assert array_size >= 1
@@ -36,7 +36,7 @@ class WKernel(object):
 
         self.w_value = w_value
         self.cell_size = cell_size
-        self.scale = scale
+        self.undersampling_ratio = undersampling
 
         if radial_line is False:
             self.array_size = array_size
@@ -47,7 +47,7 @@ class WKernel(object):
             xy_pixels = np.arange(array_size, dtype=np.float_) - centre_idx
 
             # Now translate that to distance in terms of direction cosines and scale according the scale ratio
-            self.distance_vec = xy_pixels * cell_size * scale
+            self.distance_vec = xy_pixels * cell_size * undersampling
 
             # Create empty 2-D kernel array
             self.array = np.zeros((self.array_size, self.array_size), dtype=np.complex)
@@ -67,7 +67,7 @@ class WKernel(object):
 
             # Distance from each pixel in the diagonal direction to the kernel-centre position:
             # (units of pixels)
-            xy_pixels = np.arange(array_size, dtype=np.float_) * scale * np.sqrt(2)
+            xy_pixels = np.arange(array_size, dtype=np.float_) * undersampling * np.sqrt(2)
 
             # Now translate that to distance in terms of direction cosines and scale according the scale ratio
             self.distance_vec = xy_pixels * cell_size

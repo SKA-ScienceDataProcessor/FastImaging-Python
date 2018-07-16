@@ -116,6 +116,8 @@ def main(uvw_lambda,
     # Subtract model-generated visibilities from incoming data
     residual_vis = data_vis - model_vis
 
+    mueller_term = np.ones((100, 100))
+
     # Kernel generation - might configure this via config-file in future.
     kernel_support = 3
     kernel_func = PSWF(kernel_support)
@@ -129,18 +131,20 @@ def main(uvw_lambda,
                                                 kernel_func=kernel_func,
                                                 kernel_support=kernel_support,
                                                 kernel_exact=False,
-                                                kernel_oversampling=1,
-                                                num_wplanes=2,
+                                                kernel_oversampling=8,
+                                                num_wplanes=10,
                                                 wplanes_median=False,
-                                                max_wpconv_support=3,
+                                                max_wpconv_support=10,
                                                 analytic_gcf=True,
-                                                hankel_opt=True,
+                                                hankel_opt=False,
+                                                interp_type="cubic",
                                                 undersampling_opt=1,
                                                 kernel_trunc_perc=1.0,
-                                                aproj_numtimesteps=0,
+                                                aproj_numtimesteps=4,
                                                 obs_dec=0.0,
                                                 obs_lat=-30.0,
                                                 lha=lha,
+                                                mueller_term=mueller_term,
                                                 progress_bar=progress_bar)
     logger.info("Running sourcefinder on image")
     sfimage = SourceFindImage(data=np.real(image),
