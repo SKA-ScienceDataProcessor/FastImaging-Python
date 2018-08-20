@@ -13,12 +13,22 @@ from tqdm import tqdm as Tqdm
 
 import fastimgproto.imager as imager
 import fastimgproto.visibility as visibility
-from fastimgproto.gridder.conv_funcs import PSWF
+import fastimgproto.gridder.conv_funcs as kfuncs
 from fastimgproto.sourcefind.image import SourceFindImage
 
 from .config import ConfigKeys, default_config_path
 
 logger = logging.getLogger()
+
+# Mapping kernel function strings to python implementation
+FUNCTION_KERNELS = {
+    'PSWF': kfuncs.PSWF,
+    'GaussianSinc': kfuncs.GaussianSinc,
+    'Gaussian': kfuncs.Gaussian,
+    'Sinc': kfuncs.Sinc,
+    'TopHat': kfuncs.Pillbox,
+    'Triangle': kfuncs.Triangle,
+}
 
 
 # @click.argument(
@@ -41,17 +51,36 @@ def cli(config_json, input_npz, ):
     logging.basicConfig(level=logging.DEBUG)
 
     npz_content = np.load(input_npz)
-    uvw_lambda = npz_content['uvw_lambda']
-    lha = npz_content['lha']
-    local_skymodel = npz_content['skymodel']
-    data_vis = npz_content['vis']
-    snr_weights = npz_content['snr_weights']
+
+    if 'uvw_lambda' in npz_content:
+        uvw_lambda = npz_content['uvw_lambda']
+    else:
+        assert False
+
+    if 'skymodel' in npz_content:
+        local_skymodel = npz_content['skymodel']
+    else:
+        assert False
+
+    if 'vis' in npz_content:
+        data_vis = npz_content['vis']
+    else:
+        assert False
+
+    if 'lha' in npz_content:
+        lha = npz_content['lha']
+    else:
+        lha = np.zeros_like(data_vis)
+
+    if 'snr_weights' in npz_content:
+        snr_weights = npz_content['snr_weights']
+    else:
+        snr_weights = np.ones_like(data_vis)
 
     config = json.load(config_json)
-    cell_size = config[ConfigKeys.cell_size_arcsec] * u.arcsec
-    image_size = config[ConfigKeys.image_size_pix] * u.pix
-    detection_n_sigma = config[ConfigKeys.sourcefind_detection]
-    analysis_n_sigma = config[ConfigKeys.sourcefind_analysis]
+    imager_config = config[ConfigKeys.imager_settings]
+    wprojection_config = config[ConfigKeys.wprojection_settings]
+    sourcefind_config = config[ConfigKeys.sourcefind_settings]
 
     sfimage = main(
         uvw_lambda=uvw_lambda,
@@ -59,15 +88,17 @@ def cli(config_json, input_npz, ):
         data_vis=data_vis,
         snr_weights=snr_weights,
         lha=lha,
-        image_size=image_size,
-        cell_size=cell_size,
-        detection_n_sigma=detection_n_sigma,
-        analysis_n_sigma=analysis_n_sigma,
+        imager_config=imager_config,
+        wprojection_config=wprojection_config,
+        sourcefind_config=sourcefind_config,
     )
 
-    logger.info("Found residual sources")
-    for found_src in sfimage.islands:
-        logger.info(found_src)
+    if sfimage.islands:
+        logger.info("Found residual sources:")
+        for found_src in sfimage.islands:
+            logger.info(found_src.params)
+    else:
+        logger.info("No residual source found.")
 
 
 def generate_visibilities_from_local_skymodel(skymodel, uvw_baselines):
@@ -101,10 +132,9 @@ def main(uvw_lambda,
          data_vis,
          snr_weights,
          lha,
-         image_size,
-         cell_size,
-         detection_n_sigma,
-         analysis_n_sigma,
+         imager_config,
+         wprojection_config,
+         sourcefind_config,
          ):
     """
     Represents the difference-image + detect stages of the FastImaging pipeline.
@@ -118,9 +148,32 @@ def main(uvw_lambda,
 
     mueller_term = np.ones((100, 100))
 
+    # Imager settings
+    cell_size = imager_config[ConfigKeys.cell_size_arcsec] * u.arcsec
+    image_size = imager_config[ConfigKeys.image_size_pix] * u.pix
+    kernel_function_str = imager_config[ConfigKeys.kernel_function]
+    kernel_support = imager_config[ConfigKeys.kernel_support]
+    kernel_exact = imager_config[ConfigKeys.kernel_exact]
+    oversampling = imager_config[ConfigKeys.oversampling]
+    gridding_correction = imager_config[ConfigKeys.gridding_correction]
+    analytic_gcf = imager_config[ConfigKeys.analytic_gcf]
+
+    # Wprojection settings
+    num_wplanes = wprojection_config[ConfigKeys.num_wplanes]
+    wplanes_median = wprojection_config[ConfigKeys.wplanes_median]
+    max_wpconv_support = wprojection_config[ConfigKeys.max_wpconv_support]
+    hankel_opt = wprojection_config[ConfigKeys.hankel_opt]
+    undersampling_opt = wprojection_config[ConfigKeys.undersampling_opt]
+    kernel_trunc_perc = wprojection_config[ConfigKeys.kernel_trunc_perc]
+    interp_type = wprojection_config[ConfigKeys.interp_type]
+
+    # Sourcefind settings
+    detection_n_sigma = sourcefind_config[ConfigKeys.sourcefind_detection]
+    analysis_n_sigma = sourcefind_config[ConfigKeys.sourcefind_analysis]
+
     # Kernel generation - might configure this via config-file in future.
-    kernel_support = 3
-    kernel_func = PSWF(kernel_support)
+    kernel_funct = FUNCTION_KERNELS[kernel_function_str](kernel_support)
+
     logger.info("Imaging residual visibilities")
     with Tqdm() as progress_bar:
         image, beam = imager.image_visibilities(residual_vis,
@@ -128,21 +181,22 @@ def main(uvw_lambda,
                                                 uvw_lambda=uvw_lambda,
                                                 image_size=image_size,
                                                 cell_size=cell_size,
-                                                kernel_func=kernel_func,
+                                                kernel_func=kernel_funct,
                                                 kernel_support=kernel_support,
-                                                kernel_exact=False,
-                                                kernel_oversampling=8,
-                                                num_wplanes=10,
-                                                wplanes_median=False,
-                                                max_wpconv_support=10,
-                                                analytic_gcf=True,
-                                                hankel_opt=False,
-                                                interp_type="cubic",
-                                                undersampling_opt=1,
-                                                kernel_trunc_perc=1.0,
-                                                aproj_numtimesteps=4,
+                                                kernel_exact=kernel_exact,
+                                                kernel_oversampling=oversampling,
+                                                gridding_correction=gridding_correction,
+                                                analytic_gcf=analytic_gcf,
+                                                num_wplanes=num_wplanes,
+                                                wplanes_median=wplanes_median,
+                                                max_wpconv_support=max_wpconv_support,
+                                                hankel_opt=hankel_opt,
+                                                undersampling_opt=undersampling_opt,
+                                                kernel_trunc_perc=kernel_trunc_perc,
+                                                interp_type=interp_type,
+                                                aproj_numtimesteps=0,
                                                 obs_dec=0.0,
-                                                obs_lat=-30.0,
+                                                obs_lat=0.0,
                                                 lha=lha,
                                                 mueller_term=mueller_term,
                                                 progress_bar=progress_bar)

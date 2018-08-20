@@ -4,4 +4,4 @@ implementations.
 """
 
 from .present import CPP_BINDINGS_PRESENT
-from .imager import cpp_image_visibilities, CppKernelFuncs
+from .imager import cpp_image_visibilities, CppKernelFuncs, CppFFTRoutines, CppInterpolation, PYTHON_KERNELS

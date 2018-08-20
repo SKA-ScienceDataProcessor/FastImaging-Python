@@ -19,10 +19,11 @@ def image_visibilities(
         kernel_support,
         kernel_exact=True,
         kernel_oversampling=None,
+        gridding_correction=True,
+        analytic_gcf=False,
         num_wplanes=0,
         wplanes_median=False,
         max_wpconv_support=0,
-        analytic_gcf=False,
         hankel_opt=False,
         interp_type="linear",
         undersampling_opt=0,
@@ -62,14 +63,16 @@ def image_visibilities(
         kernel_oversampling (int): Controls kernel-generation if
             ``exact==False``. Larger values give a finer-sampled set of
             pre-cached kernels.
+        gridding_correction (bool): Correct the gridding effect of the anti-aliasing
+            kernel on the dirty image and beam model.
+        analytic_gcf (bool): Compute approximation of image-domain kernel from
+            analytic expression of DFT.
         num_wplanes (int): Number of planes for W-Projection. Set to zero or None
             to disable W-projection.
         wplanes_median (bool): Use median to compute w-planes, otherwise use mean.
         max_wpconv_support (int): Defines the maximum 'radius' of the bounding box
             within which convolution takes place when W-Projection is used.
             `Box width in pixels = 2*support+1`.
-        analytic_gcf (bool): Compute approximation of image-domain kernel from
-            analytic expression of DFT.
         hankel_opt (bool): Use Hankel Transform (HT) optimization for quicker
             execution of W-Projection.
         interp_type (string): Interpolation method (use "linear" or "cubic").
@@ -157,24 +160,24 @@ def image_visibilities(
     image = np.real(fft_to_image_plane(vis_grid))
     beam = np.real(fft_to_image_plane(sample_grid))
 
-    # Generate gridding correction kernel
-    gcf_array = ImgDomKernel(kernel_func, image_size_int, normalize=False, radial_line=False,
+    # Total sample weight to renormalize the visibilities.
+    total_sample_weight = np.real(sample_grid.sum())
+    if gridding_correction is True:
+        # Generate correction kernel
+        gcf_array = ImgDomKernel(kernel_func, image_size_int, normalize=False, radial_line=False,
                              analytic_gcf=analytic_gcf).array
-
-    # Normalization factor:
-    # We correct for the FFT scale factor of 1/image_size**2 by dividing by the image-domain AA-kernel
-    # (cf https://docs.scipy.org/doc/numpy/reference/routines.fft.html#implementation-details)
-    image = image / gcf_array
-    beam = beam / gcf_array
-
-    # And then divide by the total sample weight to renormalize the visibilities.
-    if analytic_gcf is True:
-        total_sample_weight = np.real(sample_grid.sum()) / (image_size_int*image_size_int)
+        # Normalization factor:
+        # We correct for the FFT scale factor of 1/image_size**2 by dividing by the image-domain AA-kernel
+        # (cf https://docs.scipy.org/doc/numpy/reference/routines.fft.html#implementation-details)
+        if analytic_gcf is True:
+            gcf_array *= (total_sample_weight / (image_size_int * image_size_int))
+        else:
+            gcf_array *= total_sample_weight
     else:
-        total_sample_weight = np.real(sample_grid.sum())
+        gcf_array = total_sample_weight / (image_size_int * image_size_int)
 
     if total_sample_weight != 0:
-        beam /= total_sample_weight
-        image /= total_sample_weight
+        image = image / gcf_array
+        beam = beam / gcf_array
 
     return image, beam

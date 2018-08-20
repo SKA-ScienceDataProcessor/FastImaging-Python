@@ -11,18 +11,36 @@ class CppKernelFuncs(object):
     A simple namespace / enum structure for listing the available kernels.
     """
     pswf = 'pswf'
-    gauss = 'gauss'
-    gauss_sinc = 'gauss_sinc'
+    gaussian = 'gaussian'
+    gaussiansinc = 'gaussiansinc'
     sinc = 'sinc'
     triangle = 'triangle'
     tophat = 'tophat'
 
 
+class CppFFTRoutines(object):
+    """
+    A simple namespace / enum structure for listing the available FFT routines on Cpp implementation.
+    """
+    estimate = 'estimate'
+    measure = 'measure'
+    patient = 'patient'
+    wisdom = 'wisdom'
+
+
+class CppInterpolation(object):
+    """
+    A simple namespace / enum structure for listing the available interpolation functions on Cpp implementation.
+    """
+    linear = 'linear'
+    cubic = 'cubic'
+
+
 # Mapping to equivalent implementation in pure Python
 PYTHON_KERNELS = {
     CppKernelFuncs.pswf: kfuncs.PSWF,
-    CppKernelFuncs.gauss_sinc: kfuncs.GaussianSinc,
-    CppKernelFuncs.gauss: kfuncs.Gaussian,
+    CppKernelFuncs.gaussiansinc: kfuncs.GaussianSinc,
+    CppKernelFuncs.gaussian: kfuncs.Gaussian,
     CppKernelFuncs.sinc: kfuncs.Sinc,
     CppKernelFuncs.tophat: kfuncs.Pillbox,
     CppKernelFuncs.triangle: kfuncs.Triangle,
@@ -34,11 +52,23 @@ if CPP_BINDINGS_PRESENT:
     # Mapping from name to stp function:
     CPP_KERNELS = {
         CppKernelFuncs.pswf: stp_python.KernelFunction.PSWF,
-        CppKernelFuncs.gauss_sinc: stp_python.KernelFunction.GaussianSinc,
-        CppKernelFuncs.gauss: stp_python.KernelFunction.Gaussian,
+        CppKernelFuncs.gaussiansinc: stp_python.KernelFunction.GaussianSinc,
+        CppKernelFuncs.gaussian: stp_python.KernelFunction.Gaussian,
         CppKernelFuncs.sinc: stp_python.KernelFunction.Sinc,
         CppKernelFuncs.triangle: stp_python.KernelFunction.Triangle,
         CppKernelFuncs.tophat: stp_python.KernelFunction.TopHat,
+    }
+
+    FFT_ROUTINE = {
+        CppFFTRoutines.estimate: stp_python.FFTRoutine.FFTW_ESTIMATE_FFT,
+        CppFFTRoutines.measure: stp_python.FFTRoutine.FFTW_MEASURE_FFT,
+        CppFFTRoutines.patient: stp_python.FFTRoutine.FFTW_PATIENT_FFT,
+        CppFFTRoutines.wisdom: stp_python.FFTRoutine.FFTW_WISDOM_FFT,
+    }
+
+    INTERPOLATION_FUNCS = {
+        CppInterpolation.linear: stp_python.InterpType.LINEAR,
+        CppInterpolation.cubic: stp_python.InterpType.CUBIC,
     }
 
 
@@ -47,27 +77,28 @@ def cpp_image_visibilities(vis,
                            uvw_lambda,
                            image_size,
                            cell_size,
-                           kernel_func_name,
+                           kernel_func_name='pswf',
                            kernel_trunc_radius=3.0,
                            kernel_support=3,
                            kernel_exact=True,
-                           kernel_oversampling=0,
+                           kernel_oversampling=None,
                            generate_beam=False,
-                           fft_routine=None,
+                           gridding_correction=True,
+                           analytic_gcf=False,
+                           fft_routine='estimate',
                            fft_wisdom_filename="",
                            num_wplanes=0,
                            wplanes_median=False,
                            max_wpconv_support=0,
-                           analytic_gcf=False,
                            hankel_opt=False,
                            undersampling_opt=0,
                            kernel_trunc_perc=0.0,
-                           interp_type=None,
+                           interp_type='linear',
                            aproj_numtimesteps=0,
                            obs_dec=0.0,
                            obs_lat=0.0,
                            lha=np.ones(1,),
-                           mueller_term=np.ones((1,1)),
+                           mueller_term=np.ones((1, 1)),
 ):
     """
     Convenience wrapper over _cpp_image_visibilities.
@@ -76,10 +107,7 @@ def cpp_image_visibilities(vis,
     :func:`fastimgproto.imager.image_visibilities`, but the key difference is
     that instead of passing a callable kernel-function, you must choose
     ``kernel_func_name`` from a limited selection of kernel-functions
-    implemented in the C++ code. Currently, choices are limited to:
-
-        - ``gauss_sinc``
-
+    implemented in the C++ code.
 
     Performs the following tasks before handing over to C++ bindings:
     - Checks CPP bindings are available
@@ -104,17 +132,22 @@ def cpp_image_visibilities(vis,
             which convolution takes place. `Box width in pixels = 2*support+1`.
             (The central pixel is the one nearest to the UV co-ordinates.)
             (This is sometimes known as the 'half-support')
+        kernel_exact (bool): Calculate exact kernel-values for every UV-sample.
         kernel_oversampling (int): (Or None). Controls kernel-generation,
             see :func:`fastimgproto.gridder.gridder.convolve_to_grid` for
             details.
+        gridding_correction (bool): Correct the gridding effect of the anti-
+            aliasing kernel on the dirty image and beam model.
+        analytic_gcf (bool): Compute approximation of image-domain kernel from
+            analytic expression.
+        stp_fftroutine (str): Selects FFT routine to be used.
+        fft_wisdom_filename (string): Wisdom filename used by FFTW.
         num_wplanes (int): Number of planes for W-Projection. Set zero or None
             to disable W-projection.
         wplanes_median (bool): Use median to compute w-planes, otherwise use mean.
         max_wpconv_support (int): Defines the maximum 'radius' of the bounding box
             within which convolution takes place when W-Projection is used.
             `Box width in pixels = 2*support+1`.
-        analytic_gcf (bool): Compute approximation of image-domain kernel from
-            analytic expression of DFT.
         hankel_opt (int): Use Hankel Transform (HT) optimization for quicker
             execution of W-Projection. Set 0 to disable HT and 1 or 2 to enable HT.
             The larger non-zero value increases HT accuracy, by using an extended
@@ -126,7 +159,7 @@ def cpp_image_visibilities(vis,
         kernel_trunc_perc (float): Percentage of the kernel peak at which the
             W-projection convolution kernel is trucanted. If 0 use kernel size
             computed from max_wpconv_support.
-        interp_type (enum): Interpolation type to be used for kernel generation
+        stp_interpolation (str): Interpolation type to be used for kernel generation
             step in the Hankel Transorm. Available options are: "LINEAR", "COSINE"
             and "CUBIC".
         aproj_numtimesteps (int): Number of time steps used for A-projection.
@@ -151,6 +184,8 @@ def cpp_image_visibilities(vis,
         raise OSError("Cannot import stp_python (C++ bindings module)")
 
     stp_kernel = CPP_KERNELS[kernel_func_name]
+    stp_fftroutine = FFT_ROUTINE[fft_routine]
+    stp_interpolation = INTERPOLATION_FUNCS[interp_type]
 
     if kernel_oversampling is None:
         kernel_oversampling = 0
@@ -169,16 +204,17 @@ def cpp_image_visibilities(vis,
         kernel_exact,
         kernel_oversampling,
         generate_beam,
-        fft_routine,
+        gridding_correction,
+        analytic_gcf,
+        stp_fftroutine,
         fft_wisdom_filename,
         num_wplanes,
         wplanes_median,
         max_wpconv_support,
-        analytic_gcf,
         hankel_opt,
         undersampling_opt,
         kernel_trunc_perc,
-        interp_type,
+        stp_interpolation,
         aproj_numtimesteps,
         obs_dec,
         obs_lat,

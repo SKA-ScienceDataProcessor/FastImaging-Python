@@ -20,6 +20,8 @@ _STRUCTURE_ELEMENT = np.array([[1, 1, 1],
                                [1, 1, 1], ],
                               dtype=int)
 
+# Minimum number of samples of found islands
+_ISL_MIN_NUMSAMPLES = 5
 
 def estimate_rms(image):
     clipped_data = astropy.stats.sigma_clip(image)
@@ -242,6 +244,11 @@ class SourceFindImage(object):
         self.islands = []
         logger.debug("Calculating moments...")
         for label_num, extremum in region_extrema.items():
+            # Ignore small islands (with number of samples inferior to _ISL_MIN_NUMSAMPLES)
+            num_samples = np.sum(self.label_map == label_num)
+            if num_samples < _ISL_MIN_NUMSAMPLES:
+                continue
+
             # Determine if the label number is positive or negative:
             label_sign = int(math.copysign(1, label_num))
             island_mask = ~(self.label_map == label_num)
@@ -455,7 +462,6 @@ class SourceFindImage(object):
         #                           y_stddev=semiminor,
         #                           theta=theta,
         #                           )
-
 
         initial_params = island.params.moments_fit
 

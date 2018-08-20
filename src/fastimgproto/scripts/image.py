@@ -11,7 +11,7 @@ import numpy as np
 from tqdm import tqdm as Tqdm
 
 import fastimgproto.imager as imager
-from fastimgproto.gridder.conv_funcs import GaussianSinc
+from fastimgproto.gridder.conv_funcs import PSWF
 
 from .config import ConfigKeys, default_config_path
 
@@ -37,13 +37,13 @@ def cli(config_json, in_vis, out_img):
     image_size = config[ConfigKeys.image_size_pix] * u.pix
 
     npz_data_dict = np.load(in_vis)
-    uvw_lambda = npz_data_dict['uvw_lambda']
+    uvw_lambda = npz_data_dict['uvw']
     vis = npz_data_dict['vis']
-    snr_weights = npz_data_dict['snr_weights']
+    snr_weights = np.ones(vis.shape)
 
     # Will move this to a config option later
     kernel_support = 3
-    kernel_func = GaussianSinc(trunc=kernel_support)
+    kernel_func = PSWF(trunc=kernel_support)
 
     with Tqdm() as progress_bar:
         image, beam = imager.image_visibilities(vis, vis_weights=snr_weights,
@@ -54,8 +54,8 @@ def cli(config_json, in_vis, out_img):
                                                 kernel_support=kernel_support,
                                                 kernel_exact=True,
                                                 kernel_oversampling=None,
-                                                num_wplanes=0,
-                                                max_wpconv_support=0,
+                                                gridding_correction=False,
+                                                analytic_gcf=False,
                                                 progress_bar=progress_bar)
 
     np.savez(out_img, image=image, beam=beam)

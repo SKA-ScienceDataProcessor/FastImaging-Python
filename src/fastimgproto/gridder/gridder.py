@@ -229,8 +229,6 @@ def convolve_to_grid(kernel_func,
                                            analytic_gcf=analytic_gcf).array
 
     else:
-        # Compute oversampled AA kernel cache
-        kernel_cache = populate_kernel_cache(kernel_func, aa_support, oversampling)
         # Set 1 plane when W-projection is False (just to enter in gridding loop. W-projection is not performed)
         num_wplanes = 1
         w_planes_gvidx = [0, len(good_vis_idx)]
@@ -265,6 +263,8 @@ def convolve_to_grid(kernel_func,
 
     # Not exact gridding
     if not exact:
+        # Compute oversampled AA kernel cache
+        kernel_cache = populate_kernel_cache(kernel_func, aa_support, oversampling)
         oversampled_offset = calculate_oversampled_kernel_indices(uv_frac, oversampling)
 
     # Create gridding arrays
