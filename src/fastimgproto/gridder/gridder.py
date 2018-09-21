@@ -564,7 +564,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         if kernel_trunc_perc > 0.0:
             min_value = np.abs(comb_kernel_radius[0]) * kernel_trunc_perc / 100.0
             for pos in reversed(range(1, conv_support + 1)):
-                if np.abs(comb_kernel_radius[pos * oversampling]) > min_value:
+                if np.abs(comb_kernel_radius[pos * oversampling * 2]) > min_value:
                     break
             trunc_conv_sup = min(int(np.ceil(pos * np.sqrt(2))), conv_support)
 
@@ -573,7 +573,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         kernel_centre = max_kernel_size // 2
         x, y = np.meshgrid(range(max_kernel_size), range(max_kernel_size))
         r = np.sqrt((x - kernel_centre) ** 2 + (y - kernel_centre) ** 2)
-        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2)), 1 / (np.sqrt(2))),
+        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2)), 1 / np.sqrt(2)),
                      comb_kernel_radius, copy=False, kind=interp_type, bounds_error=False, fill_value=0.0,
                      assume_sorted=True)
         comb_kernel_array = f(r.flat).reshape(r.shape)
