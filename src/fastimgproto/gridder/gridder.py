@@ -564,9 +564,9 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         if kernel_trunc_perc > 0.0:
             min_value = np.abs(comb_kernel_radius[0]) * kernel_trunc_perc / 100.0
             for pos in reversed(range(1, conv_support + 1)):
-                if np.abs(comb_kernel_radius[pos * oversampling * 2]) > min_value:
+                if np.abs(comb_kernel_radius[pos * oversampling]) > min_value:
                     break
-            trunc_conv_sup = min(int(np.ceil(pos * np.sqrt(2))), conv_support)
+            trunc_conv_sup = min(int(np.ceil(pos * np.sqrt(2) / 2)), conv_support)
 
         # Interpolate
         max_kernel_size = (trunc_conv_sup * 2 + 1 + 1) * oversampling
