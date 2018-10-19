@@ -30,9 +30,9 @@ def image_visibilities(
         kernel_trunc_perc=1.0,
         aproj_numtimesteps=0,
         obs_dec=0.0,
-        obs_lat=0.0,
+        obs_ra=0.0,
         lha=np.ones(1,),
-        mueller_term=np.ones((1, 1)),
+        pbeam_coefs=np.array([1]),
         progress_bar=None):
     """
     Args:
@@ -85,12 +85,12 @@ def image_visibilities(
         aproj_numtimesteps (int): Number of time steps used for A-projection.
             Set zero to disable A-projection.
         obs_dec (float): Declination of observation pointing centre (in degrees)
-        obs_lat (float): Latitude of observation pointing centre (in degrees)
+        obs_ra (float): Right Ascension of observation pointing centre (in degrees)
         lha (numpy.ndarray): Local hour angle of visibilities.
             LHA=0 is transit, LHA=-6h is rising, LHA=+6h is setting.
             1d array, shape: `(n_vis,)`.
-        mueller_term (numpy.array):  Mueller matrix term (defined each image
-            coordinate) used for A-projection.
+        pbeam_coefs (numpy.ndarray): Primary beam given by spherical harmonics coefficients.
+            The SH degree is constant being derived from the number of coefficients minus one.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
@@ -139,7 +139,7 @@ def image_visibilities(
                                              exact=kernel_exact,
                                              oversampling=kernel_oversampling,
                                              num_wplanes=num_wplanes,
-                                             cell_size=cell_size.to(u.rad).value,
+                                             cell_size=cell_size,
                                              w_lambda=uvw_lambda[:, 2],
                                              wplanes_median=wplanes_median,
                                              max_wpconv_support=max_wpconv_support,
@@ -150,9 +150,9 @@ def image_visibilities(
                                              kernel_trunc_perc=kernel_trunc_perc,
                                              aproj_numtimesteps=aproj_numtimesteps,
                                              obs_dec=obs_dec,
-                                             obs_lat=obs_lat,
+                                             obs_ra=obs_ra,
                                              lha=lha,
-                                             mueller_term=mueller_term,
+                                             pbeam_coefs=pbeam_coefs,
                                              progress_bar=progress_bar
                                              )
 

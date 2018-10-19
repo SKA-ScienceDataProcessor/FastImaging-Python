@@ -42,11 +42,10 @@ class WKernel(object):
             self.array_size = array_size
             centre_idx = array_size // 2
 
-            # Distance from each pixel's sample position to kernel-centre position:
-            # (units of pixels)
+            # Distance from each pixel's sample position to kernel-centre position (units of pixels):
             xy_pixels = np.arange(array_size, dtype=np.float_) - centre_idx
 
-            # Now translate that to distance in terms of direction cosines and scale according the scale ratio
+            # Now translate that to distance in terms of radians
             self.distance_vec = xy_pixels * cell_size * undersampling
 
             # Create empty 2-D kernel array
@@ -55,11 +54,12 @@ class WKernel(object):
             # Generate kernel coefficients
             for y in range(1, array_size):
                 for x in range(1, array_size):
-                    squared_radians = self.distance_vec[x] * self.distance_vec[x] + self.distance_vec[y] * self.distance_vec[y]
-                    if squared_radians > 1.0:
+                    rsquared_radians = self.distance_vec[x] * self.distance_vec[x] + \
+                                       self.distance_vec[y] * self.distance_vec[y]
+                    if rsquared_radians >= 1.0:
                         self.array[y, x] = 1.0
                     else:
-                        n = np.sqrt(1 - squared_radians)
+                        n = np.sqrt(1 - rsquared_radians)
                         self.array[y, x] = np.exp(-2 * np.pi * 1j * w_value * (n - 1)) / n
         else:
             array_size = array_size // 2
@@ -69,7 +69,7 @@ class WKernel(object):
             # (units of pixels)
             xy_pixels = np.arange(array_size, dtype=np.float_) * undersampling * np.sqrt(2)
 
-            # Now translate that to distance in terms of direction cosines and scale according the scale ratio
+            # Now translate that to distance in terms of direction cosines
             self.distance_vec = xy_pixels * cell_size
 
             # Create empty 1-D kernel array
@@ -77,9 +77,9 @@ class WKernel(object):
 
             # Generate kernel coefficients
             for x in range(array_size):
-                squared_radians = self.distance_vec[x] * self.distance_vec[x]
-                if squared_radians > 1.0:
+                rsquared_radians = self.distance_vec[x] * self.distance_vec[x]
+                if rsquared_radians >= 1.0:
                     self.array[x] = 1.0
                 else:
-                    n = np.sqrt(1 - squared_radians)
+                    n = np.sqrt(1 - rsquared_radians)
                     self.array[x] = np.exp(-2 * np.pi * 1j * w_value * (n - 1)) / n

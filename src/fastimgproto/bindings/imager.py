@@ -95,9 +95,9 @@ def cpp_image_visibilities(vis,
                            interp_type='linear',
                            aproj_numtimesteps=0,
                            obs_dec=0.0,
-                           obs_lat=0.0,
+                           obs_ra=0.0,
                            lha=np.ones(1,),
-                           mueller_term=np.ones((1, 1)),
+                           pbeam_coefs=np.array([1])
 ):
     """
     Convenience wrapper over _cpp_image_visibilities.
@@ -163,12 +163,12 @@ def cpp_image_visibilities(vis,
         aproj_numtimesteps (int): Number of time steps used for A-projection.
             Set zero to disable A-projection.
         obs_dec (float): Declination of observation pointing centre (in degrees)
-        obs_lat (float): Latitude of observation pointing centre (in degrees)
+        obs_ra (float): Right Ascension of observation pointing centre (in degrees)
         lha (numpy.ndarray): Local hour angle of visibilities.
             LHA=0 is transit, LHA=-6h is rising, LHA=+6h is setting.
             1d array, shape: `(n_vis,)`.
-        mueller_term (numpy.array):  Mueller matrix term (defined each image
-            coordinate) used for A-projection.
+        pbeam_coefs (numpy.ndarray): Primary beam given by spherical harmonics coefficients.
+            The SH degree is constant being derived from the number of coefficients minus one.
 
     Returns:
         tuple: (image, beam)
@@ -214,9 +214,9 @@ def cpp_image_visibilities(vis,
         stp_interpolation,
         int(aproj_numtimesteps),
         obs_dec,
-        obs_lat,
+        obs_ra,
         lha,
-        mueller_term
+        pbeam_coefs
     )
 
     return image, beam

@@ -10,6 +10,7 @@ class ConfigKeys:
     """
     imager_settings = 'imager_settings'
     wprojection_settings = 'wprojection_settings'
+    aprojection_settings = 'aprojection_settings'
     sourcefind_settings = 'sourcefind_settings'
 
     image_size_pix = 'image_size_pix'
@@ -31,6 +32,10 @@ class ConfigKeys:
     kernel_trunc_perc='kernel_trunc_perc'
     interp_type='interp_type'
 
+    aproj_numtimesteps='aproj_numtimesteps'
+    obs_dec='obs_dec'
+    obs_ra='obs_ra'
+    pbeam_coefs='pbeam_coefs'
 
 imager_config = OrderedDict((
     (ConfigKeys.image_size_pix, 1024),
@@ -53,6 +58,13 @@ wprojection_config = OrderedDict((
     (ConfigKeys.interp_type, 'linear'),
 ))
 
+aprojection_config = OrderedDict((
+    (ConfigKeys.aproj_numtimesteps, 0),
+    (ConfigKeys.obs_dec, 0),
+    (ConfigKeys.obs_ra, 0),
+    (ConfigKeys.pbeam_coefs, [0]),
+))
+
 sourcefind_config = OrderedDict((
     (ConfigKeys.sourcefind_detection, 50),
     (ConfigKeys.sourcefind_analysis, 50),
@@ -61,6 +73,7 @@ sourcefind_config = OrderedDict((
 default_config = OrderedDict((
     (ConfigKeys.imager_settings, imager_config),
     (ConfigKeys.wprojection_settings, wprojection_config),
+    (ConfigKeys.aprojection_settings, aprojection_config),
     (ConfigKeys.sourcefind_settings, sourcefind_config),
 ))
 

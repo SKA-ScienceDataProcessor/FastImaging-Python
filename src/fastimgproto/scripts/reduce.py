@@ -80,6 +80,7 @@ def cli(config_json, input_npz, ):
     config = json.load(config_json)
     imager_config = config[ConfigKeys.imager_settings]
     wprojection_config = config[ConfigKeys.wprojection_settings]
+    aprojection_config = config[ConfigKeys.aprojection_settings]
     sourcefind_config = config[ConfigKeys.sourcefind_settings]
 
     sfimage = main(
@@ -90,6 +91,7 @@ def cli(config_json, input_npz, ):
         lha=lha,
         imager_config=imager_config,
         wprojection_config=wprojection_config,
+        aprojection_config=aprojection_config,
         sourcefind_config=sourcefind_config,
     )
 
@@ -134,6 +136,7 @@ def main(uvw_lambda,
          lha,
          imager_config,
          wprojection_config,
+         aprojection_config,
          sourcefind_config,
          ):
     """
@@ -145,8 +148,6 @@ def main(uvw_lambda,
         skymodel=skymodel, uvw_baselines=uvw_lambda)
     # Subtract model-generated visibilities from incoming data
     residual_vis = data_vis - model_vis
-
-    mueller_term = np.ones((100, 100))
 
     # Imager settings
     cell_size = imager_config[ConfigKeys.cell_size_arcsec] * u.arcsec
@@ -166,6 +167,12 @@ def main(uvw_lambda,
     undersampling_opt = wprojection_config[ConfigKeys.undersampling_opt]
     kernel_trunc_perc = wprojection_config[ConfigKeys.kernel_trunc_perc]
     interp_type = wprojection_config[ConfigKeys.interp_type]
+
+    # Aprojection settings
+    aproj_numtimesteps = aprojection_config[ConfigKeys.aproj_numtimesteps]
+    obs_dec = aprojection_config[ConfigKeys.obs_dec]
+    obs_ra = aprojection_config[ConfigKeys.obs_ra]
+    pbeam_coefs = aprojection_config[ConfigKeys.pbeam_coefs]
 
     # Sourcefind settings
     detection_n_sigma = sourcefind_config[ConfigKeys.sourcefind_detection]
@@ -194,11 +201,11 @@ def main(uvw_lambda,
                                                 undersampling_opt=undersampling_opt,
                                                 kernel_trunc_perc=kernel_trunc_perc,
                                                 interp_type=interp_type,
-                                                aproj_numtimesteps=0,
-                                                obs_dec=0.0,
-                                                obs_lat=0.0,
+                                                aproj_numtimesteps=aproj_numtimesteps,
+                                                obs_dec=obs_dec,
+                                                obs_ra=obs_ra,
                                                 lha=lha,
-                                                mueller_term=mueller_term,
+                                                pbeam_coefs=pbeam_coefs,
                                                 progress_bar=progress_bar)
     logger.info("Running sourcefinder on image")
     sfimage = SourceFindImage(data=np.real(image),

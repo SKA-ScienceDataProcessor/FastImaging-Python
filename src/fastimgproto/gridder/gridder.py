@@ -4,7 +4,9 @@ Convolutional gridding of visibilities.
 import logging
 
 import numpy as np
+import astropy.units as u
 import tqdm
+from scipy.special import sph_harm
 from scipy.special import jn
 from scipy.interpolate import interp1d
 from scipy import ndimage
@@ -36,9 +38,9 @@ def convolve_to_grid(kernel_func,
                      kernel_trunc_perc=1.0,
                      aproj_numtimesteps=0,
                      obs_dec=0.0,
-                     obs_lat=0.0,
+                     obs_ra=0.0,
                      lha=np.ones(1, ),
-                     mueller_term=np.ones((1, 1)),
+                     pbeam_coefs=np.array([1]),
                      raise_bounds=False,
                      progress_bar=None):
     """
@@ -110,11 +112,11 @@ def convolve_to_grid(kernel_func,
         aproj_numtimesteps (int): Number of time steps used for A-projection.
             Set zero to disable A-projection.
         obs_dec (float): Declination of observation pointing centre (in degrees)
-        obs_lat (float): Latitude of observation pointing centre (in degrees)
+        obs_ra (float): Right Ascension of observation pointing centre (in degrees)
         lha (numpy.ndarray): Local hour angle of visibilities.
             1d array, shape: `(n_vis,)`.
-        mueller_term (numpy.array):  Mueller matrix term (defined each image
-            coordinate) used for A-projection.
+        pbeam_coefs (numpy.ndarray): Primary beam given by spherical harmonics coefficients.
+            The SH degree is constant being derived from the number of coefficients minus one.
         raise_bounds (bool): Raise an exception if any of the UV samples lie
             outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
@@ -252,11 +254,6 @@ def convolve_to_grid(kernel_func,
                 vis_timestep[good_vis_idx[targs]] = ts
             else:
                 lha_mean.append(0.0)
-
-        # Resize kernel
-        mtsize = np.size(mueller_term, 0)
-        mueller_term_resized = ndimage.zoom(mueller_term, float(workarea_size)/float(mtsize), order=1)
-        assert np.size(mueller_term_resized, 0) == workarea_size
     else:
         # Set 1 time step when A-projection is False (just to enter in gridding loop. A-projection is not performed)
         num_timesteps = 1
@@ -285,14 +282,17 @@ def convolve_to_grid(kernel_func,
 
         if use_wproj is True:
             # Generate W-kernel
-            w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size, cell_size=cell_size,
-                               undersampling=undersampling_ratio, radial_line=radial_line)
+            w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size,
+                               cell_size=cell_size.to(u.rad).value, undersampling=undersampling_ratio,
+                               radial_line=radial_line)
 
         # Iterate through each time step
         for ts in range(num_timesteps):
             if use_aproj is True:
                 # Generate the AW-kernels
-                a_kernel = rotate_beam(mueller_term_resized, lha_mean[ts], obs_dec, obs_lat)
+                a_kernel = generate_rotated_primary_beam(pbeam_coefs, lha_mean[ts], np.radians(obs_dec),
+                                                         np.radians(obs_ra), image_size*cell_size.to(u.rad).value,
+                                                         workarea_size)
                 kernel_cache, conv_support = \
                     generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
                                                       max_wpconv_support, oversampling, a_kernel, hankel_opt,
@@ -624,49 +624,69 @@ def compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median):
     return w_avg_values, w_planes_gvidx
 
 
-def rotate_beam(beam, lha_mean, dec, lat):
+def generate_rotated_primary_beam(pbeam_coefs, lha_mean, dec_rad, ra_rad, fov, workarea_size):
     """
-    Rotate beam (M-term) for A-projection using linear interpolation.
+    Generate rotated primary beam for A-projection using linear interpolation.
 
     Args:
-        beam (numpy.ndarray): Sampled beam function (or M-term).
+        pbeam_coefs (numpy.ndarray): Spherical harmonic coefficients of the primary beam.
         lha (float): Mean hour angle of the object, in decimal hours (0,24)
-        dec (float): Declination of the object, in degrees
-        lat (float): The latitude of the observer, in degrees
+        dec_rad (float): Declination of the observation pointing centre, in radians
+        ra_rad (float): Right Ascension of the observation pointing centre, in radians
+        fov (float): Field od view, in radians
+        workarea_size (int): Workarea size for kernel generation.
 
     Returns:
         numpy.ndarray: Rotated beam function
     """
 
-    # Determine parallactic angle
-    pangle = parangle(lha_mean, float(dec), float(lat))
-    pbmin_r = beam.real[0, 0]
-    pbmin_i = beam.imag[0, 0]
+    # Determine parallactic angle (in radians)
+    pangle = parangle(lha_mean, float(dec_rad), float(ra_rad))
+    #pbmin_r = beam.real[0, 0]
+    #pbmin_i = beam.imag[0, 0]
+
+    distance_radians = np.linspace(-(fov/2), (fov/2), workarea_size)
+    x_rad, y_rad = np.meshgrid(distance_radians, distance_radians)
+
+    phi = np.sqrt(x_rad*x_rad + y_rad*y_rad)
+    theta = np.arctan(y_rad/x_rad)
+
+    # Degree of spherical harmonics
+    sh_degree = len(pbeam_coefs) - 1
+
+    # Create primary beam from spherical harmonics
+    pbeam = np.zeros((workarea_size, workarea_size))
+    for ord in range(0, len(pbeam_coefs)):
+        if pbeam_coefs[ord] != 0.0:
+            pbeam += pbeam_coefs[ord] * np.abs(sph_harm(ord, sh_degree, theta + pangle, phi).real)
+
+    # Invert primary beam function (and normalize)
+    pbeam = np.max(np.max(pbeam)) / pbeam
 
     # Rotate (use order-1 spline interpolation)
-    rbeam = np.empty_like(beam, dtype=complex)
-    rbeam.real = ndimage.interpolation.rotate(beam.real, pangle, reshape=False, mode='constant', cval=pbmin_r, order=1)
-    rbeam.imag = ndimage.interpolation.rotate(beam.imag, pangle, reshape=False, mode='constant', cval=pbmin_i, order=1)
-    return rbeam
+    #rbeam = np.empty_like(beam, dtype=complex)
+    #rbeam.real = ndimage.interpolation.rotate(beam.real, pangle, reshape=False, mode='constant', cval=pbmin_r, order=1)
+    #rbeam.imag = ndimage.interpolation.rotate(beam.imag, pangle, reshape=False, mode='constant', cval=pbmin_i, order=1)
+    return pbeam
 
 
-def parangle(ha, dec_d, lat_d):
+def parangle(ha, dec_rad, ra_rad):
     """
     Compute parallatic angle for beam rotation.
 
     Args:
         ha (float): Hour angle of the object, in decimal hours (0,24)
-        dec_d (float): Declination of the object, in degrees
-        lat_d (float): The latitude of the observer, in degrees
+        dec_rad (float): Declination of the observation pointing centre, in radians
+        ra_rad (float): The right ascension of the observation pointing centre, in radians
 
     Returns:
-        float: parallactic angle in degrees
+        float: parallactic angle in radians
     """
-    lat_r = np.radians(lat_d)
-    dec_r = np.radians(dec_d)
-    ha_r = np.radians(ha * 15.)
-    sin_eta_sin_z = np.cos(lat_r) * np.sin(ha_r)
-    cos_eta_sin_z = np.sin(lat_r) * np.cos(dec_r) - np.cos(lat_r) * np.sin(dec_r) * np.cos(ha_r)
+    ra_rad = np.radians(ra_rad)
+    dec_rad = np.radians(dec_rad)
+    ha_rad = np.radians(ha * 15.)
+    sin_eta_sin_z = np.cos(ra_rad) * np.sin(ha_rad)
+    cos_eta_sin_z = np.sin(ra_rad) * np.cos(dec_rad) - np.cos(ra_rad) * np.sin(dec_rad) * np.cos(ha_rad)
     eta = np.arctan2(sin_eta_sin_z, cos_eta_sin_z)
 
-    return np.degrees(eta)
+    return eta
