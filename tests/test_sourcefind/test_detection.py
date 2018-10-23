@@ -248,7 +248,8 @@ def test_connectivity():
     sfimage = SourceFindImage(img, detection_n_sigma=4,
                               analysis_n_sigma=3,
                               rms_est=rms,
-                              find_negative_sources=False)
+                              find_negative_sources=False,
+                              source_min_area=1)
 
     binary_map = sfimage.data > sfimage.analysis_n_sigma * sfimage.rms_est
 

@@ -97,7 +97,8 @@ def cpp_image_visibilities(vis,
                            obs_dec=0.0,
                            obs_ra=0.0,
                            lha=np.ones(1,),
-                           pbeam_coefs=np.array([1])
+                           pbeam_coefs=np.array([1]),
+                           aproj_interp_rotation=False
 ):
     """
     Convenience wrapper over _cpp_image_visibilities.
@@ -169,6 +170,8 @@ def cpp_image_visibilities(vis,
             1d array, shape: `(n_vis,)`.
         pbeam_coefs (numpy.ndarray): Primary beam given by spherical harmonics coefficients.
             The SH degree is constant being derived from the number of coefficients minus one.
+        aproj_interp_rotation (bool): Use interpolation techniques for primary beam rotation
+            in A-projection instead of recomputing a-kernel from spherical harmonics.
 
     Returns:
         tuple: (image, beam)
@@ -216,7 +219,8 @@ def cpp_image_visibilities(vis,
         obs_dec,
         obs_ra,
         lha,
-        pbeam_coefs
+        pbeam_coefs,
+        aproj_interp_rotation
     )
 
     return image, beam

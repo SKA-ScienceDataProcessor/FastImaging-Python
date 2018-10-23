@@ -6,13 +6,13 @@ import logging
 import numpy as np
 import astropy.units as u
 import tqdm
-from scipy.special import sph_harm
 from scipy.special import jn
 from scipy.interpolate import interp1d
-from scipy import ndimage
 
 from fastimgproto.gridder.wkernel_generation import WKernel
 from fastimgproto.gridder.kernel_generation import Kernel, ImgDomKernel
+import fastimgproto.gridder.akernel_generation as akernel
+
 from fastimgproto.utils import reset_progress_bar
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ def convolve_to_grid(kernel_func,
                      obs_ra=0.0,
                      lha=np.ones(1, ),
                      pbeam_coefs=np.array([1]),
+                     aproj_interp_rotation=False,
                      raise_bounds=False,
                      progress_bar=None):
     """
@@ -117,6 +118,8 @@ def convolve_to_grid(kernel_func,
             1d array, shape: `(n_vis,)`.
         pbeam_coefs (numpy.ndarray): Primary beam given by spherical harmonics coefficients.
             The SH degree is constant being derived from the number of coefficients minus one.
+        aproj_interp_rotation (bool): Use interpolation techniques for primary beam rotation
+            in A-projection instead of recomputing a-kernel from spherical harmonics.
         raise_bounds (bool): Raise an exception if any of the UV samples lie
             outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
@@ -254,6 +257,11 @@ def convolve_to_grid(kernel_func,
                 vis_timestep[good_vis_idx[targs]] = ts
             else:
                 lha_mean.append(0.0)
+
+        # If matrix rotation is enabled, we generate A-kernel once before the gridding procedure
+        if aproj_interp_rotation is True:
+            fov = image_size * cell_size.to(u.rad).value
+            pbeam = akernel.generate_primary_beam(pbeam_coefs, fov, workarea_size)
     else:
         # Set 1 time step when A-projection is False (just to enter in gridding loop. A-projection is not performed)
         num_timesteps = 1
@@ -290,9 +298,14 @@ def convolve_to_grid(kernel_func,
         for ts in range(num_timesteps):
             if use_aproj is True:
                 # Generate the AW-kernels
-                a_kernel = generate_rotated_primary_beam(pbeam_coefs, lha_mean[ts], np.radians(obs_dec),
-                                                         np.radians(obs_ra), image_size*cell_size.to(u.rad).value,
-                                                         workarea_size)
+                if aproj_interp_rotation is True:
+                    a_kernel = akernel.rotate_primary_beam_for_lha(pbeam, lha_mean[ts], np.radians(obs_dec),
+                                                             np.radians(obs_ra))
+                else:
+                    a_kernel = akernel.generate_primary_beam_for_lha(pbeam_coefs, lha_mean[ts], np.radians(obs_dec),
+                                                             np.radians(obs_ra), image_size*cell_size.to(u.rad).value,
+                                                             workarea_size)
+
                 kernel_cache, conv_support = \
                     generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
                                                       max_wpconv_support, oversampling, a_kernel, hankel_opt,
@@ -622,71 +635,3 @@ def compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median):
     w_planes_gvidx.append(num_gvis)
 
     return w_avg_values, w_planes_gvidx
-
-
-def generate_rotated_primary_beam(pbeam_coefs, lha_mean, dec_rad, ra_rad, fov, workarea_size):
-    """
-    Generate rotated primary beam for A-projection using linear interpolation.
-
-    Args:
-        pbeam_coefs (numpy.ndarray): Spherical harmonic coefficients of the primary beam.
-        lha (float): Mean hour angle of the object, in decimal hours (0,24)
-        dec_rad (float): Declination of the observation pointing centre, in radians
-        ra_rad (float): Right Ascension of the observation pointing centre, in radians
-        fov (float): Field od view, in radians
-        workarea_size (int): Workarea size for kernel generation.
-
-    Returns:
-        numpy.ndarray: Rotated beam function
-    """
-
-    # Determine parallactic angle (in radians)
-    pangle = parangle(lha_mean, float(dec_rad), float(ra_rad))
-    #pbmin_r = beam.real[0, 0]
-    #pbmin_i = beam.imag[0, 0]
-
-    distance_radians = np.linspace(-(fov/2), (fov/2), workarea_size)
-    x_rad, y_rad = np.meshgrid(distance_radians, distance_radians)
-
-    phi = np.sqrt(x_rad*x_rad + y_rad*y_rad)
-    theta = np.arctan(y_rad/x_rad)
-
-    # Degree of spherical harmonics
-    sh_degree = len(pbeam_coefs) - 1
-
-    # Create primary beam from spherical harmonics
-    pbeam = np.zeros((workarea_size, workarea_size))
-    for ord in range(0, len(pbeam_coefs)):
-        if pbeam_coefs[ord] != 0.0:
-            pbeam += pbeam_coefs[ord] * np.abs(sph_harm(ord, sh_degree, theta + pangle, phi).real)
-
-    # Invert primary beam function (and normalize)
-    pbeam = np.max(np.max(pbeam)) / pbeam
-
-    # Rotate (use order-1 spline interpolation)
-    #rbeam = np.empty_like(beam, dtype=complex)
-    #rbeam.real = ndimage.interpolation.rotate(beam.real, pangle, reshape=False, mode='constant', cval=pbmin_r, order=1)
-    #rbeam.imag = ndimage.interpolation.rotate(beam.imag, pangle, reshape=False, mode='constant', cval=pbmin_i, order=1)
-    return pbeam
-
-
-def parangle(ha, dec_rad, ra_rad):
-    """
-    Compute parallatic angle for beam rotation.
-
-    Args:
-        ha (float): Hour angle of the object, in decimal hours (0,24)
-        dec_rad (float): Declination of the observation pointing centre, in radians
-        ra_rad (float): The right ascension of the observation pointing centre, in radians
-
-    Returns:
-        float: parallactic angle in radians
-    """
-    ra_rad = np.radians(ra_rad)
-    dec_rad = np.radians(dec_rad)
-    ha_rad = np.radians(ha * 15.)
-    sin_eta_sin_z = np.cos(ra_rad) * np.sin(ha_rad)
-    cos_eta_sin_z = np.sin(ra_rad) * np.cos(dec_rad) - np.cos(ra_rad) * np.sin(dec_rad) * np.cos(ha_rad)
-    eta = np.arctan2(sin_eta_sin_z, cos_eta_sin_z)
-
-    return eta

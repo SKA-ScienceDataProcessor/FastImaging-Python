@@ -33,11 +33,12 @@ def cli(config_json, in_vis, out_img):
     """
     logging.basicConfig(level=logging.DEBUG)
     config = json.load(config_json)
-    cell_size = config[ConfigKeys.cell_size_arcsec] * u.arcsec
-    image_size = config[ConfigKeys.image_size_pix] * u.pix
+    imager_settings = config[ConfigKeys.imager_settings]
+    cell_size = imager_settings[ConfigKeys.cell_size_arcsec] * u.arcsec
+    image_size = imager_settings[ConfigKeys.image_size_pix] * u.pix
 
     npz_data_dict = np.load(in_vis)
-    uvw_lambda = npz_data_dict['uvw']
+    uvw_lambda = npz_data_dict['uvw_lambda']
     vis = npz_data_dict['vis']
     snr_weights = np.ones(vis.shape)
 

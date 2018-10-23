@@ -4,7 +4,7 @@ import astropy.units as u
 import numpy as np
 
 from fastimgproto.skymodel.helpers import SkySource
-from fastimgproto.gridder.gridder import parangle
+from fastimgproto.gridder.akernel_generation import parallatic_angle
 from scipy.special import sph_harm
 
 
@@ -21,7 +21,7 @@ def l_cosine(ra, dec, ra0):
 
     """
 
-    return (math.cos(dec) * math.sin(ra - ra0))
+    return math.cos(dec) * math.sin(ra - ra0)
 
 
 def m_cosine(ra, dec, ra0, dec0):
@@ -216,7 +216,7 @@ def visibilities_for_source_list_and_pbeam(pointing_centre, source_list, uvw,
 
     # Determine parallatic angles for primary beam rotation
     for idx, ha in enumerate(lha):
-        uvw_parangles[idx] = parangle(ha, pointing_centre.dec.value, pointing_centre.ra.value)
+        uvw_parangles[idx] = parallatic_angle(ha, pointing_centre.dec.value, pointing_centre.ra.value)
 
     for src in source_list:
         assert isinstance(src, SkySource)

@@ -33,6 +33,7 @@ def image_visibilities(
         obs_ra=0.0,
         lha=np.ones(1,),
         pbeam_coefs=np.array([1]),
+        aproj_interp_rotation=False,
         progress_bar=None):
     """
     Args:
@@ -91,6 +92,8 @@ def image_visibilities(
             1d array, shape: `(n_vis,)`.
         pbeam_coefs (numpy.ndarray): Primary beam given by spherical harmonics coefficients.
             The SH degree is constant being derived from the number of coefficients minus one.
+        aproj_interp_rotation (bool): Use interpolation techniques for primary beam rotation
+            in A-projection instead of recomputing a-kernel from spherical harmonics.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
@@ -153,6 +156,7 @@ def image_visibilities(
                                              obs_ra=obs_ra,
                                              lha=lha,
                                              pbeam_coefs=pbeam_coefs,
+                                             aproj_interp_rotation=aproj_interp_rotation,
                                              progress_bar=progress_bar
                                              )
 
