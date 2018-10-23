@@ -5,6 +5,7 @@ from setuptools import find_packages, setup
 import versioneer
 
 install_requires = [
+    'numpy<1.15.0',
     'astropy',
     'attrs>=17.2.0',
     'click',
