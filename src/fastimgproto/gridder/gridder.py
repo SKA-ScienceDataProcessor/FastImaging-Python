@@ -613,6 +613,9 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
 def compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median):
     num_gvis = len(good_vis_idx)
 
+    if num_gvis < num_wplanes:
+        num_wplanes = num_gvis
+
     # Define w-planes
     plane_size = np.ceil(num_gvis / num_wplanes)
 
