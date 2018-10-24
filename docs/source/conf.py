@@ -104,3 +104,5 @@ intersphinx_mapping = {
 
 # For quick building of regular docs during development:
 # nbsphinx_execute = 'never'
+
+nbsphinx_timeout = 60
