@@ -36,6 +36,7 @@ class ConfigKeys:
     obs_dec='obs_dec'
     obs_ra='obs_ra'
     pbeam_coefs='pbeam_coefs'
+    aproj_interp_rotation='aproj_interp_rotation'
 
 imager_config = OrderedDict((
     (ConfigKeys.image_size_pix, 1024),
@@ -63,6 +64,7 @@ aprojection_config = OrderedDict((
     (ConfigKeys.obs_dec, 0),
     (ConfigKeys.obs_ra, 0),
     (ConfigKeys.pbeam_coefs, [0]),
+    (ConfigKeys.aproj_interp_rotation, False),
 ))
 
 sourcefind_config = OrderedDict((

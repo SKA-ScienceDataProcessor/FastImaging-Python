@@ -98,7 +98,8 @@ def cpp_image_visibilities(vis,
                            obs_ra=0.0,
                            lha=np.ones(1,),
                            pbeam_coefs=np.array([1]),
-                           aproj_interp_rotation=False
+                           aproj_interp_rotation=False,
+                           aproj_optimisation=False
 ):
     """
     Convenience wrapper over _cpp_image_visibilities.
@@ -115,6 +116,8 @@ def cpp_image_visibilities(vis,
 
     Args:
         vis (numpy.ndarray): Complex visibilities.
+            1d array, shape: `(n_vis,)`.
+        vis_weights (numpy.ndarray): Visibility weights.
             1d array, shape: `(n_vis,)`.
         uvw_lambda (numpy.ndarray): UVW-coordinates of visibilities. Units are
             multiples of wavelength.
@@ -135,11 +138,12 @@ def cpp_image_visibilities(vis,
         kernel_oversampling (int): (Or None). Controls kernel-generation,
             see :func:`fastimgproto.gridder.gridder.convolve_to_grid` for
             details.
+        generate_beam (bool): Generate the dirty beam data.
         gridding_correction (bool): Correct the gridding effect of the anti-
             aliasing kernel on the dirty image and beam model.
         analytic_gcf (bool): Compute approximation of image-domain kernel from
             analytic expression.
-        stp_fftroutine (str): Selects FFT routine to be used.
+        fft_routine (str): Selects FFT routine to be used.
         fft_wisdom_filename (string): Wisdom filename used by FFTW.
         num_wplanes (int): Number of planes for W-Projection. Set zero or None
             to disable W-projection.
@@ -158,9 +162,8 @@ def cpp_image_visibilities(vis,
         kernel_trunc_perc (float): Percentage of the kernel peak at which the
             W-projection convolution kernel is trucanted. If 0 use kernel size
             computed from max_wpconv_support.
-        stp_interpolation (str): Interpolation type to be used for kernel generation
-            step in the Hankel Transorm. Available options are: "LINEAR", "COSINE"
-            and "CUBIC".
+        interp_type (str): Interpolation method for kernel generation step in
+            the Hankel Transorm. (use "linear" or "cubic").
         aproj_numtimesteps (int): Number of time steps used for A-projection.
             Set zero to disable A-projection.
         obs_dec (float): Declination of observation pointing centre (in degrees)
@@ -172,6 +175,8 @@ def cpp_image_visibilities(vis,
             The SH degree is constant being derived from the number of coefficients minus one.
         aproj_interp_rotation (bool): Use interpolation techniques for primary beam rotation
             in A-projection instead of recomputing a-kernel from spherical harmonics.
+        aproj_optimisation (bool): Use A-projection optimisation which rotates the
+            convolution kernel rather than the A-kernel.
 
     Returns:
         tuple: (image, beam)
@@ -220,7 +225,8 @@ def cpp_image_visibilities(vis,
         obs_ra,
         lha,
         pbeam_coefs,
-        aproj_interp_rotation
+        aproj_interp_rotation,
+        aproj_optimisation,
     )
 
     return image, beam

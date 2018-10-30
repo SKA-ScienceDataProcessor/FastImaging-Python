@@ -8,6 +8,7 @@ import astropy.units as u
 import tqdm
 from scipy.special import jn
 from scipy.interpolate import interp1d
+from scipy import ndimage
 
 from fastimgproto.gridder.wkernel_generation import WKernel
 from fastimgproto.gridder.kernel_generation import Kernel, ImgDomKernel
@@ -42,6 +43,7 @@ def convolve_to_grid(kernel_func,
                      lha=np.ones(1, ),
                      pbeam_coefs=np.array([1]),
                      aproj_interp_rotation=False,
+                     aproj_optimisation=False,
                      raise_bounds=False,
                      progress_bar=None):
     """
@@ -120,6 +122,8 @@ def convolve_to_grid(kernel_func,
             The SH degree is constant being derived from the number of coefficients minus one.
         aproj_interp_rotation (bool): Use interpolation techniques for primary beam rotation
             in A-projection instead of recomputing a-kernel from spherical harmonics.
+        aproj_optimisation (bool): Use A-projection optimisation which rotates the
+            convolution kernel rather than the A-kernel.
         raise_bounds (bool): Raise an exception if any of the UV samples lie
             outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
@@ -259,7 +263,7 @@ def convolve_to_grid(kernel_func,
                 lha_mean.append(0.0)
 
         # If matrix rotation is enabled, we generate A-kernel once before the gridding procedure
-        if aproj_interp_rotation is True:
+        if aproj_optimisation or aproj_interp_rotation is True:
             fov = image_size * cell_size.to(u.rad).value
             pbeam = akernel.generate_primary_beam(pbeam_coefs, fov, workarea_size)
     else:
@@ -293,29 +297,49 @@ def convolve_to_grid(kernel_func,
             w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size,
                                cell_size=cell_size.to(u.rad).value, undersampling=undersampling_ratio,
                                radial_line=radial_line)
-
+            # If aproj-optimisation is set then generate the oversampled convolution kernel using unrotated a-kernel
+            if use_aproj and aproj_optimisation is True:
+                oversampled_conv_kernel, conv_support = \
+                    generate_oversampled_convolution_kernel(w_kernel, aa_kernel_img_array, workarea_size,
+                                                            max_wpconv_support, oversampling, pbeam, hankel_opt,
+                                                            interp_type, kernel_trunc_perc)
         # Iterate through each time step
         for ts in range(num_timesteps):
             if use_aproj is True:
                 # Generate the AW-kernels
-                if aproj_interp_rotation is True:
-                    a_kernel = akernel.rotate_primary_beam_for_lha(pbeam, lha_mean[ts], np.radians(obs_dec),
-                                                             np.radians(obs_ra))
+                if aproj_optimisation is True:
+                    # Due to aproj-optimisation we just need to rotate the convolution kernel for each LHA
+                    kernel_cache = populate_kernel_cache_awprojection(oversampled_conv_kernel, conv_support,
+                                                                      oversampling, True, lha_mean[ts],
+                                                                      np.deg2rad(obs_dec), np.deg2rad(obs_ra))
                 else:
-                    a_kernel = akernel.generate_primary_beam_for_lha(pbeam_coefs, lha_mean[ts], np.radians(obs_dec),
-                                                             np.radians(obs_ra), image_size*cell_size.to(u.rad).value,
-                                                             workarea_size)
+                    # Non-optimised A-projection: rotate a-kernel before multiplying by w- and aa-kernels
+                    if aproj_interp_rotation is True:
+                        a_kernel = akernel.rotate_primary_beam_for_lha(pbeam, lha_mean[ts], np.deg2rad(obs_dec),
+                                                                       np.deg2rad(obs_ra))
+                    else:
+                        fov = image_size * cell_size.to(u.rad).value
+                        a_kernel = akernel.generate_primary_beam_for_lha(pbeam_coefs, lha_mean[ts], np.deg2rad(obs_dec),
+                                                                         np.deg2rad(obs_ra), fov, workarea_size)
 
-                kernel_cache, conv_support = \
-                    generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
-                                                      max_wpconv_support, oversampling, a_kernel, hankel_opt,
-                                                      interp_type, kernel_trunc_perc)
+                    # Multiply a-, w- and aa-kernels, and determine FFT
+                    oversampled_conv_kernel, conv_support = \
+                        generate_oversampled_convolution_kernel(w_kernel, aa_kernel_img_array, workarea_size,
+                                                                max_wpconv_support, oversampling, a_kernel,
+                                                                hankel_opt, interp_type, kernel_trunc_perc)
+                    # Generate kernel cache from oversampled convolution kernel
+                    kernel_cache = populate_kernel_cache_awprojection(oversampled_conv_kernel, conv_support,
+                                                                      oversampling, False)
             else:
                 if use_wproj is True:
-                    kernel_cache, conv_support = \
-                        generate_kernel_cache_wprojection(w_kernel, aa_kernel_img_array, workarea_size,
-                                                          max_wpconv_support, oversampling, None,
-                                                          hankel_opt, interp_type, kernel_trunc_perc)
+                    # Multiply w- and aa-kernels, and determine FFT
+                    oversampled_conv_kernel, conv_support = \
+                        generate_oversampled_convolution_kernel(w_kernel, aa_kernel_img_array, workarea_size,
+                                                                max_wpconv_support, oversampling, None,
+                                                                hankel_opt, interp_type, kernel_trunc_perc)
+                    # Generate kernel cache from oversampled convolution kernel
+                    kernel_cache = populate_kernel_cache_awprojection(oversampled_conv_kernel, conv_support,
+                                                                      oversampling, False)
 
             # Iterate through each visibility
             for idx in good_vis_idx[w_gvlow:w_gvhigh]:
@@ -502,10 +526,11 @@ def dht(f):
     return np.tensordot(I, f, axes=([1], [0]))
 
 
-def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, conv_support, oversampling,
-                                      a_kernel=None, hankel_opt=False, interp_type="linear", kernel_trunc_perc=1.0):
+def generate_oversampled_convolution_kernel(w_kernel, aa_kernel_img, workarea_size, conv_support, oversampling,
+                                            a_kernel=None, hankel_opt=False, interp_type="linear",
+                                            kernel_trunc_perc=1.0):
     """
-    Generate a cache of kernels at oversampled-pixel offsets for W-Projection.
+    Generate convolution kernel at oversampled-pixel offsets for A- and W-Projection.
 
     We need kernels for offsets of up to ``oversampling//2`` oversampling-pixels
     in any direction, in steps of one oversampling-pixel
@@ -517,7 +542,7 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
         workarea_size (int): Workarea size for kernel generation.
         conv_support (int): Convolution kernel support size.
         oversampling (int): Oversampling ratio.
-        a_kernel (numpy.ndarray): Sampled A-kernel function.
+        a_kernel (numpy.ndarray): Sampled A-kernel function (optional).
         hankel_opt (bool): Use hankel transform optimisation.
         interp_type (string): Interpolation method (use "linear" or "cubic").
         kernel_trunc_perc (float): Percentage of maximum amplitude from which
@@ -538,9 +563,6 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
     wkernel_size = workarea_size
     workarea_size = workarea_size * oversampling
     workarea_centre = workarea_size // 2
-    kernel_cache = dict()
-    cache_size = (oversampling // 2 * 2) + 1
-    oversampled_pixel_offsets = np.arange(cache_size) - oversampling // 2
     trunc_conv_sup = conv_support
 
     if hankel_opt is False:
@@ -593,6 +615,56 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
 
     assert trunc_conv_sup <= conv_support
 
+    return comb_kernel_array, trunc_conv_sup
+
+
+def populate_kernel_cache_awprojection(oversampled_conv_kernel, trunc_conv_sup, oversampling, rotate=False,
+                                       lha=0.0, dec_rad=0.0, ra_rad=0.0):
+    """
+    Generate a cache of normalised kernels at oversampled-pixel offsets for A- and W-Projection
+
+    We need kernels for offsets of up to ``oversampling//2`` oversampling-pixels
+    in any direction, in steps of one oversampling-pixel
+    (i.e. steps of width ``1/oversampling`` in the original co-ordinate system).
+
+    Args:
+        w_kernel (numpy.ndarray): Sampled W-kernel function.
+        aa_kernel_img (numpy.ndarray): Sampled image-domain anti-aliasing kernel.
+        workarea_size (int): Workarea size for kernel generation.
+        conv_support (int): Convolution kernel support size.
+        oversampling (int): Oversampling ratio.
+        a_kernel (numpy.ndarray): Sampled A-kernel function.
+        hankel_opt (bool): Use hankel transform optimisation.
+        interp_type (string): Interpolation method (use "linear" or "cubic").
+        kernel_trunc_perc (float): Percentage of maximum amplitude from which
+            convolution kernel is truncated.
+
+    Returns:
+        dict: Dictionary mapping oversampling-pixel offsets to normalised gridding
+            kernels for the W-plane associated to the input W-kernel.
+            cache_size = ((oversampling // 2 * 2) + 1)**2
+    """
+    if oversampling > 1:
+        assert (oversampling % 2) == 0
+
+    kernel_centre = oversampled_conv_kernel.shape[0] // 2
+    kernel_cache = dict()
+    cache_size = (oversampling // 2 * 2) + 1
+    oversampled_pixel_offsets = np.arange(cache_size) - oversampling // 2
+
+    if rotate is True:
+        # Determine parallactic angle (in radians)
+        pangle = akernel.parallatic_angle(lha, np.deg2rad(dec_rad), np.deg2rad(ra_rad))
+
+        min_val = oversampled_conv_kernel[0, 0]
+        rot_oversampled_conv_kernel = np.empty_like(oversampled_conv_kernel)
+        rot_oversampled_conv_kernel.real = ndimage.interpolation.rotate(
+            oversampled_conv_kernel.real, np.rad2deg(pangle), reshape=False, mode='constant', cval=min_val, order=1)
+        rot_oversampled_conv_kernel.imag = ndimage.interpolation.rotate(
+            oversampled_conv_kernel.imag, np.rad2deg(pangle), reshape=False, mode='constant', cval=min_val, order=1)
+    else:
+        rot_oversampled_conv_kernel = oversampled_conv_kernel
+
     # Generate kernel cache
     for x_step in oversampled_pixel_offsets:
         for y_step in oversampled_pixel_offsets:
@@ -600,17 +672,31 @@ def generate_kernel_cache_wprojection(w_kernel, aa_kernel_img, workarea_size, co
                            kernel_centre + trunc_conv_sup * oversampling - x_step + 1, oversampling)
             yrange = slice(kernel_centre - trunc_conv_sup * oversampling - y_step,
                            kernel_centre + trunc_conv_sup * oversampling - y_step + 1, oversampling)
-            conv_kernel_array = comb_kernel_array[yrange, xrange]
+            conv_kernel_array = rot_oversampled_conv_kernel[yrange, xrange]
             array_sum = np.real(conv_kernel_array.sum())
             conv_kernel_array = conv_kernel_array / array_sum
 
             # Store kernel on cache
             kernel_cache[(x_step, y_step)] = conv_kernel_array
 
-    return kernel_cache, trunc_conv_sup
+    return kernel_cache
 
 
 def compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median):
+    """
+    Determine central W-plane values for wide field imaging
+
+    Args:
+        good_vis_idx (numpy.array): List of good visibility indexes.
+        num_wplanes (int): Number of W-planes to compute.
+        w_lambda (numpy.array): List of W-lambda values for each visibility.
+        wplanes_median (bool): If true, determine W-plane values using the median rather than mean.
+
+    Returns:
+        tuple: (w_avg_values, w_planes_gvidx)
+            Tuple of ndarrays representing the determined W-planes and the index of the first visibility assigned to
+            the plane.
+    """
     num_gvis = len(good_vis_idx)
 
     if num_gvis < num_wplanes:

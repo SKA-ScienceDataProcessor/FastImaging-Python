@@ -57,7 +57,7 @@ def generate_primary_beam_for_lha(pbeam_coefs, lha, dec_rad, ra_rad, fov, workar
     """
 
     # Determine parallactic angle (in radians)
-    pangle = parallatic_angle(lha, float(dec_rad), float(ra_rad))
+    pangle = parallatic_angle(lha, dec_rad, ra_rad)
 
     pbeam = generate_primary_beam(pbeam_coefs, fov, workarea_size, pangle)
 
@@ -66,7 +66,7 @@ def generate_primary_beam_for_lha(pbeam_coefs, lha, dec_rad, ra_rad, fov, workar
 
 def rotate_primary_beam_for_lha(pbeam, lha, dec_rad, ra_rad):
     """
-    Rotate input primary beam matrix using interpolating and the specified LHA value.
+    Rotate input primary beam matrix using interpolation and the specified LHA value.
 
     Args:
         pbeam (numpy.ndarray): Primary beam matrix.
@@ -79,15 +79,12 @@ def rotate_primary_beam_for_lha(pbeam, lha, dec_rad, ra_rad):
     """
 
     # Determine parallactic angle (in radians)
-    pangle = parallatic_angle(lha, float(dec_rad), float(ra_rad))
+    pangle = parallatic_angle(lha, dec_rad, ra_rad)
 
     pbmin_r = pbeam[0, 0]
 
     # Rotate (use order-1 spline interpolation)
-    a_kernel = ndimage.interpolation.rotate(pbeam, pangle, reshape=False, mode='constant', cval=pbmin_r, order=1)
-
-    # Invert primary beam function (and normalize)
-    a_kernel = np.max(np.max(a_kernel)) / a_kernel
+    a_kernel = ndimage.interpolation.rotate(pbeam, np.rad2deg(pangle), reshape=False, mode='constant', cval=pbmin_r, order=1)
 
     return a_kernel
 
@@ -104,9 +101,7 @@ def parallatic_angle(lha, dec_rad, ra_rad):
     Returns:
         float: parallactic angle in radians
     """
-    ra_rad = np.radians(ra_rad)
-    dec_rad = np.radians(dec_rad)
-    ha_rad = np.radians(lha * 15.)
+    ha_rad = np.deg2rad(lha * 15.)
     sin_eta_sin_z = np.cos(ra_rad) * np.sin(ha_rad)
     cos_eta_sin_z = np.sin(ra_rad) * np.cos(dec_rad) - np.cos(ra_rad) * np.sin(dec_rad) * np.cos(ha_rad)
     eta = np.arctan2(sin_eta_sin_z, cos_eta_sin_z)

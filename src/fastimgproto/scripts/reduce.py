@@ -173,6 +173,7 @@ def main(uvw_lambda,
     obs_dec = aprojection_config[ConfigKeys.obs_dec]
     obs_ra = aprojection_config[ConfigKeys.obs_ra]
     pbeam_coefs = aprojection_config[ConfigKeys.pbeam_coefs]
+    aproj_interp_rotation = aprojection_config[ConfigKeys.aproj_interp_rotation]
 
     # Sourcefind settings
     detection_n_sigma = sourcefind_config[ConfigKeys.sourcefind_detection]
@@ -206,6 +207,7 @@ def main(uvw_lambda,
                                                 obs_ra=obs_ra,
                                                 lha=lha,
                                                 pbeam_coefs=pbeam_coefs,
+                                                aproj_interp_rotation=aproj_interp_rotation,
                                                 progress_bar=progress_bar)
     logger.info("Running sourcefinder on image")
     sfimage = SourceFindImage(data=np.real(image),

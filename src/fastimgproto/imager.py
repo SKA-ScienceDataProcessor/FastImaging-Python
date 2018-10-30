@@ -34,6 +34,7 @@ def image_visibilities(
         lha=np.ones(1,),
         pbeam_coefs=np.array([1]),
         aproj_interp_rotation=False,
+        aproj_optimisation=False,
         progress_bar=None):
     """
     Args:
@@ -94,6 +95,8 @@ def image_visibilities(
             The SH degree is constant being derived from the number of coefficients minus one.
         aproj_interp_rotation (bool): Use interpolation techniques for primary beam rotation
             in A-projection instead of recomputing a-kernel from spherical harmonics.
+        aproj_optimisation (bool): Use A-projection optimisation which rotates the
+            convolution kernel rather than the A-kernel.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
@@ -157,6 +160,7 @@ def image_visibilities(
                                              lha=lha,
                                              pbeam_coefs=pbeam_coefs,
                                              aproj_interp_rotation=aproj_interp_rotation,
+                                             aproj_optimisation=aproj_optimisation,
                                              progress_bar=progress_bar
                                              )
 

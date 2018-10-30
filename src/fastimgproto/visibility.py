@@ -216,7 +216,8 @@ def visibilities_for_source_list_and_pbeam(pointing_centre, source_list, uvw,
 
     # Determine parallatic angles for primary beam rotation
     for idx, ha in enumerate(lha):
-        uvw_parangles[idx] = parallatic_angle(ha, pointing_centre.dec.value, pointing_centre.ra.value)
+        uvw_parangles[idx] = parallatic_angle(ha, np.deg2rad(pointing_centre.dec.value),
+                                              np.deg2rad(pointing_centre.ra.value))
 
     for src in source_list:
         assert isinstance(src, SkySource)
