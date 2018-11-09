@@ -22,7 +22,7 @@ def test_zero_weighting():
     zeros_array = np.zeros((8, 8), dtype=vis.dtype)
 
     # Exact gridding
-    vis_grid, sampling_grid = convolve_to_grid(kernel_func,
+    vis_grid, sampling_grid, _ = convolve_to_grid(kernel_func,
                                                aa_support=support,
                                                image_size=n_image,
                                                uv=uv,
@@ -34,7 +34,7 @@ def test_zero_weighting():
     assert (vis_grid == zeros_array).all()
 
     # Kernel-cache
-    vis_grid, sampling_grid = convolve_to_grid(kernel_func,
+    vis_grid, sampling_grid, _ = convolve_to_grid(kernel_func,
                                                aa_support=support,
                                                image_size=n_image,
                                                uv=uv,
@@ -60,7 +60,7 @@ def test_natural_weighting():
     # vis_weights = np.ones_like(vis)
     kernel_func = conv_funcs.Pillbox(0.5)
     # Exact gridding
-    vis_grid, sampling_grid = convolve_to_grid(kernel_func,
+    vis_grid, sampling_grid, _ = convolve_to_grid(kernel_func,
                                                aa_support=support,
                                                image_size=n_image,
                                                uv=uv,

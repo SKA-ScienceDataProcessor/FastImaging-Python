@@ -175,7 +175,7 @@ def test_oversampled_gridding():
     vis_weights=np.ones_like(vis)
     kernel_func = conv_funcs.Triangle(2.0)
 
-    vis_grid, sample_grid = convolve_to_grid(kernel_func,
+    vis_grid, sample_grid, _ = convolve_to_grid(kernel_func,
                                aa_support=support,
                                image_size=n_image,
                                uv=uv,

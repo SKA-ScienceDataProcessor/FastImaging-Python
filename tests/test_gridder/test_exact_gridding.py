@@ -19,7 +19,7 @@ def test_single_pixel_overlap_pillbox():
     vis_weights = np.ones_like(vis)
     kernel_func = conv_funcs.Pillbox(0.5)
 
-    vis_grid, sampling_grid = convolve_to_grid(kernel_func,
+    vis_grid, sampling_grid, _ = convolve_to_grid(kernel_func,
                                                aa_support=support,
                                                image_size=n_image,
                                                uv=uv,
@@ -61,7 +61,7 @@ def test_bounds_checking():
                                 raise_bounds=True
                                 )
 
-    grid, _ = convolve_to_grid(kernel_func,
+    grid, _, _ = convolve_to_grid(kernel_func,
                                aa_support=support,
                                image_size=n_image,
                                uv=bad_uv,
@@ -76,7 +76,7 @@ def test_bounds_checking():
     good_uv = np.array([(0., 0.)])
     mixed_uv = np.array([(-3., 0),
                          (0., 0.)])
-    good_grid, _ = convolve_to_grid(
+    good_grid, _, _ = convolve_to_grid(
         kernel_func,
         aa_support=support,
         image_size=n_image,
@@ -85,7 +85,7 @@ def test_bounds_checking():
         vis_weights=np.ones(len(good_uv), dtype=np.float_),
         raise_bounds=False
     )
-    mixed_grid, _ = convolve_to_grid(
+    mixed_grid, _, _ = convolve_to_grid(
         kernel_func,
         aa_support=support,
         image_size=n_image,
@@ -106,7 +106,7 @@ def test_multi_pixel_pillbox():
     vis = np.ones(len(uv), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(1.1)
 
-    vis_grid, sampling_grid = convolve_to_grid(kernel_func,
+    vis_grid, sampling_grid, _ = convolve_to_grid(kernel_func,
                                                aa_support=support,
                                                image_size=n_image,
                                                uv=uv,
@@ -141,7 +141,7 @@ def test_small_pillbox():
     vis = np.ones(len(uv), dtype=np.float_)
     kernel_func = conv_funcs.Pillbox(0.55)
 
-    grid, _ = convolve_to_grid(kernel_func,
+    grid, _, _ = convolve_to_grid(kernel_func,
                                aa_support=support,
                                image_size=n_image,
                                uv=uv,
@@ -179,7 +179,7 @@ def test_multiple_complex_vis():
     vis_weights = np.ones_like(vis)
     kernel_func = conv_funcs.Pillbox(1.1)
 
-    vis_grid, sampling_grid = convolve_to_grid(kernel_func,
+    vis_grid, sampling_grid, _ = convolve_to_grid(kernel_func,
                                                aa_support=support,
                                                image_size=n_image,
                                                uv=uv,
@@ -224,7 +224,7 @@ def test_nearby_complex_vis():
     vis_weights = np.ones_like(vis)
     kernel_func = conv_funcs.Pillbox(1.1)
 
-    vis_grid, sampling_grid = convolve_to_grid(kernel_func,
+    vis_grid, sampling_grid, _ = convolve_to_grid(kernel_func,
                                                aa_support=support,
                                                image_size=n_image,
                                                uv=uv,
@@ -266,7 +266,7 @@ def test_triangle():
     uv += subpix_offset
     kernel_func = conv_funcs.Triangle(2.0)
 
-    vis_grid, sample_grid = convolve_to_grid(kernel_func,
+    vis_grid, sample_grid, _ = convolve_to_grid(kernel_func,
                                aa_support=support,
                                image_size=n_image,
                                uv=uv,

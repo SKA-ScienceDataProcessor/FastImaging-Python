@@ -45,6 +45,7 @@ def convolve_to_grid(kernel_func,
                      lha=np.ones(1, ),
                      pbeam_coefs=np.array([1]),
                      aproj_opt=False,
+                     aproj_mask_perc=0.0,
                      raise_bounds=False,
                      progress_bar=None):
     """
@@ -123,20 +124,21 @@ def convolve_to_grid(kernel_func,
             The SH degree is constant being derived from the number of coefficients minus one.
         aproj_opt (bool): Use A-projection optimisation which rotates the convolution
             kernel rather than the A-kernel.
+        aproj_mask_perc (float): Threshold value (in percentage) used to detect near zero
+            regions of the primary beam. The output dirty image and beam are masked in
+            the same regions to hide the boosted noise.
         raise_bounds (bool): Raise an exception if any of the UV samples lie
             outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
-        tuple: (vis_grid, sampling_grid, lha_planes)
+        tuple: (vis_grid, sampling_grid, aproj_mask)
             Tuple of ndarrays representing the gridded visibilities, the
-            sampling weights, and the list of LHA planes (when A-projection
-            is used).
-            The first two are 2d arrays of same dtype as **vis**,
+            sampling weights, and the binary mask for imager result (used when
+            A-projection is enabled).
+            These are 2d arrays of same dtype as **vis**,
             shape ``(image_size, image_size)``.
             Note numpy style index-order, i.e. access like ``vis_grid[v,u]``.
-            The last one is 1d array os shape `(aproj_numtimesteps,)`
-
     """
     if oversampling is None:
         oversampling = 1
@@ -245,8 +247,9 @@ def convolve_to_grid(kernel_func,
 
 
     # Compute A-Projection time intervals
-    lha_planes = []
     if use_aproj is True:
+        # Field of view
+        fov = image_size * cell_size.to(u.rad).value
         min_time = np.min(lha)
         max_time = np.max(lha)
         num_timesteps = aproj_numtimesteps
@@ -254,6 +257,7 @@ def convolve_to_grid(kernel_func,
         time_intervals = np.linspace(min_time-tstep_size/2, max_time+tstep_size/2, aproj_numtimesteps+1)
         # Compute average lha value for each interval
         vis_timestep = np.zeros_like(vis, dtype=int)
+        lha_planes = []
         for ts in range(num_timesteps):
             # Get visibilities within the current time range
             targs = np.where(np.logical_and(lha[good_vis_idx] >= time_intervals[ts],
@@ -266,7 +270,6 @@ def convolve_to_grid(kernel_func,
 
         # If matrix rotation is enabled, we generate A-kernel once before the gridding procedure
         if aproj_opt or aproj_interp_rotation is True:
-            fov = image_size * cell_size.to(u.rad).value
             pbeam = akernel_generation.generate_akernel(pbeam_coefs, fov, workarea_size)
     else:
         # Set 1 time step when A-projection is False (just to enter in gridding loop. A-projection is not performed)
@@ -320,7 +323,6 @@ def convolve_to_grid(kernel_func,
                         a_kernel = akernel_generation.rotate_akernel_by_lha(pbeam, lha_planes[ts], np.deg2rad(obs_dec),
                                                                        np.deg2rad(obs_ra))
                     else:
-                        fov = image_size * cell_size.to(u.rad).value
                         a_kernel = akernel_generation.generate_akernel_from_lha(pbeam_coefs, lha_planes[ts], np.deg2rad(obs_dec),
                                                                          np.deg2rad(obs_ra), fov, workarea_size)
 
@@ -379,7 +381,15 @@ def convolve_to_grid(kernel_func,
                 if progress_bar is not None:
                     progress_bar.update(1)
 
-    return vis_grid, sampling_grid, lha_planes
+    # Generate mask based on regions where the primary beam is near zero
+    akernel_mask = np.ones_like(vis_grid, dtype=bool)
+    if use_aproj is True and aproj_mask_perc > 0.0:
+        for lha_value in lha_planes:
+            akernel = akernel_generation.generate_akernel_from_lha(pbeam_coefs, lha_value, np.deg2rad(obs_dec),
+                                                                   np.deg2rad(obs_ra), fov, image_size)
+            akernel_mask = np.logical_and(akernel_mask, np.less(akernel, 100.0 / aproj_mask_perc))
+
+    return vis_grid, sampling_grid, akernel_mask
 
 
 def _bounds_check_kernel_centre_locations(uv, kernel_centre_indices,

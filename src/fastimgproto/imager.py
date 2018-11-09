@@ -4,7 +4,6 @@ from numpy.core.multiarray import dtype
 
 from fastimgproto.gridder.gridder import convolve_to_grid
 from fastimgproto.gridder.kernel_generation import ImgDomKernel
-from fastimgproto.gridder import akernel_generation
 
 
 def fft_to_image_plane(uv_grid):
@@ -139,7 +138,7 @@ def image_visibilities(
     uvw_in_pixels = (uvw_lambda / grid_pixel_width_lambda).value
     uv_in_pixels = uvw_in_pixels[:, :2]
 
-    vis_grid, sample_grid, lha_planes = convolve_to_grid(kernel_func,
+    vis_grid, sample_grid, aproj_mask = convolve_to_grid(kernel_func,
                                                          aa_support=kernel_support,
                                                          image_size=image_size_int,
                                                          uv=uv_in_pixels,
@@ -163,6 +162,7 @@ def image_visibilities(
                                                          lha=lha,
                                                          pbeam_coefs=pbeam_coefs,
                                                          aproj_opt=aproj_opt,
+                                                         aproj_mask_perc=aproj_mask_perc,
                                                          progress_bar=progress_bar
                                                          )
 
@@ -190,15 +190,9 @@ def image_visibilities(
         image = image / gcf_array
         beam = beam / gcf_array
 
-    # Mask circular regions in the image where A-kernel is near zero
+    # Mask regions in the dirty image and beam where primary beam is near zero
     if aproj_numtimesteps > 0 and aproj_mask_perc > 0.0:
-        fov = image_size_int * cell_size.to(u.rad).value
-        akernel_mask = np.ones_like(image, dtype=bool)
-        for lha_value in lha_planes:
-            akernel = akernel_generation.generate_akernel_from_lha(pbeam_coefs, lha_value, np.deg2rad(obs_dec),
-                                                                   np.deg2rad(obs_ra), fov, image_size_int)
-            akernel_mask = np.logical_and(akernel_mask, np.less(akernel, 100.0 / aproj_mask_perc))
-        image = image * akernel_mask
-        beam = beam * akernel_mask
+        image = image * aproj_mask
+        beam = beam * aproj_mask
 
     return image, beam
