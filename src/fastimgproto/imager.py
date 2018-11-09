@@ -1,8 +1,10 @@
 import astropy.units as u
 import numpy as np
+from numpy.core.multiarray import dtype
 
 from fastimgproto.gridder.gridder import convolve_to_grid
 from fastimgproto.gridder.kernel_generation import ImgDomKernel
+from fastimgproto.gridder import akernel_generation
 
 
 def fft_to_image_plane(uv_grid):
@@ -33,8 +35,8 @@ def image_visibilities(
         obs_ra=0.0,
         lha=np.ones(1,),
         pbeam_coefs=np.array([1]),
-        aproj_interp_rotation=False,
-        aproj_optimisation=False,
+        aproj_opt=False,
+        aproj_mask_perc=0.0,
         progress_bar=None):
     """
     Args:
@@ -93,10 +95,11 @@ def image_visibilities(
             1d array, shape: `(n_vis,)`.
         pbeam_coefs (numpy.ndarray): Primary beam given by spherical harmonics coefficients.
             The SH degree is constant being derived from the number of coefficients minus one.
-        aproj_interp_rotation (bool): Use interpolation techniques for primary beam rotation
-            in A-projection instead of recomputing a-kernel from spherical harmonics.
-        aproj_optimisation (bool): Use A-projection optimisation which rotates the
+        aproj_opt (bool): Use A-projection optimisation which rotates the
             convolution kernel rather than the A-kernel.
+        aproj_mask_perc (float): Threshold value (in percentage) used to detect near zero
+            regions of the primary beam. The output dirty image and beam are masked in
+            the same regions to hide the boosted noise.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
@@ -136,33 +139,32 @@ def image_visibilities(
     uvw_in_pixels = (uvw_lambda / grid_pixel_width_lambda).value
     uv_in_pixels = uvw_in_pixels[:, :2]
 
-    vis_grid, sample_grid = convolve_to_grid(kernel_func,
-                                             aa_support=kernel_support,
-                                             image_size=image_size_int,
-                                             uv=uv_in_pixels,
-                                             vis=vis,
-                                             vis_weights=vis_weights,
-                                             exact=kernel_exact,
-                                             oversampling=kernel_oversampling,
-                                             num_wplanes=num_wplanes,
-                                             cell_size=cell_size,
-                                             w_lambda=uvw_lambda[:, 2],
-                                             wplanes_median=wplanes_median,
-                                             max_wpconv_support=max_wpconv_support,
-                                             analytic_gcf=analytic_gcf,
-                                             hankel_opt=hankel_opt,
-                                             interp_type=interp_type,
-                                             undersampling_opt=undersampling_opt,
-                                             kernel_trunc_perc=kernel_trunc_perc,
-                                             aproj_numtimesteps=aproj_numtimesteps,
-                                             obs_dec=obs_dec,
-                                             obs_ra=obs_ra,
-                                             lha=lha,
-                                             pbeam_coefs=pbeam_coefs,
-                                             aproj_interp_rotation=aproj_interp_rotation,
-                                             aproj_optimisation=aproj_optimisation,
-                                             progress_bar=progress_bar
-                                             )
+    vis_grid, sample_grid, lha_planes = convolve_to_grid(kernel_func,
+                                                         aa_support=kernel_support,
+                                                         image_size=image_size_int,
+                                                         uv=uv_in_pixels,
+                                                         vis=vis,
+                                                         vis_weights=vis_weights,
+                                                         exact=kernel_exact,
+                                                         oversampling=kernel_oversampling,
+                                                         num_wplanes=num_wplanes,
+                                                         cell_size=cell_size,
+                                                         w_lambda=uvw_lambda[:, 2],
+                                                         wplanes_median=wplanes_median,
+                                                         max_wpconv_support=max_wpconv_support,
+                                                         analytic_gcf=analytic_gcf,
+                                                         hankel_opt=hankel_opt,
+                                                         interp_type=interp_type,
+                                                         undersampling_opt=undersampling_opt,
+                                                         kernel_trunc_perc=kernel_trunc_perc,
+                                                         aproj_numtimesteps=aproj_numtimesteps,
+                                                         obs_dec=obs_dec,
+                                                         obs_ra=obs_ra,
+                                                         lha=lha,
+                                                         pbeam_coefs=pbeam_coefs,
+                                                         aproj_opt=aproj_opt,
+                                                         progress_bar=progress_bar
+                                                         )
 
     # Perform FFT step
     image = np.real(fft_to_image_plane(vis_grid))
@@ -173,7 +175,7 @@ def image_visibilities(
     if gridding_correction is True:
         # Generate correction kernel
         gcf_array = ImgDomKernel(kernel_func, image_size_int, normalize=False, radial_line=False,
-                             analytic_gcf=analytic_gcf).array
+                                 analytic_gcf=analytic_gcf).array
         # Normalization factor:
         # We correct for the FFT scale factor of 1/image_size**2 by dividing by the image-domain AA-kernel
         # (cf https://docs.scipy.org/doc/numpy/reference/routines.fft.html#implementation-details)
@@ -187,5 +189,16 @@ def image_visibilities(
     if total_sample_weight != 0:
         image = image / gcf_array
         beam = beam / gcf_array
+
+    # Mask circular regions in the image where A-kernel is near zero
+    if aproj_numtimesteps > 0 and aproj_mask_perc > 0.0:
+        fov = image_size_int * cell_size.to(u.rad).value
+        akernel_mask = np.ones_like(image, dtype=bool)
+        for lha_value in lha_planes:
+            akernel = akernel_generation.generate_akernel_from_lha(pbeam_coefs, lha_value, np.deg2rad(obs_dec),
+                                                                   np.deg2rad(obs_ra), fov, image_size_int)
+            akernel_mask = np.logical_and(akernel_mask, np.less(akernel, 100.0 / aproj_mask_perc))
+        image = image * akernel_mask
+        beam = beam * akernel_mask
 
     return image, beam

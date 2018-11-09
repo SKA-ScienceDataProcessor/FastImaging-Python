@@ -12,11 +12,13 @@ from scipy import ndimage
 
 from fastimgproto.gridder.wkernel_generation import WKernel
 from fastimgproto.gridder.kernel_generation import Kernel, ImgDomKernel
-import fastimgproto.gridder.akernel_generation as akernel
+from fastimgproto.gridder import akernel_generation
 
 from fastimgproto.utils import reset_progress_bar
 
 logger = logging.getLogger(__name__)
+
+aproj_interp_rotation = False
 
 
 def convolve_to_grid(kernel_func,
@@ -42,8 +44,7 @@ def convolve_to_grid(kernel_func,
                      obs_ra=0.0,
                      lha=np.ones(1, ),
                      pbeam_coefs=np.array([1]),
-                     aproj_interp_rotation=False,
-                     aproj_optimisation=False,
+                     aproj_opt=False,
                      raise_bounds=False,
                      progress_bar=None):
     """
@@ -120,21 +121,21 @@ def convolve_to_grid(kernel_func,
             1d array, shape: `(n_vis,)`.
         pbeam_coefs (numpy.ndarray): Primary beam given by spherical harmonics coefficients.
             The SH degree is constant being derived from the number of coefficients minus one.
-        aproj_interp_rotation (bool): Use interpolation techniques for primary beam rotation
-            in A-projection instead of recomputing a-kernel from spherical harmonics.
-        aproj_optimisation (bool): Use A-projection optimisation which rotates the
-            convolution kernel rather than the A-kernel.
+        aproj_opt (bool): Use A-projection optimisation which rotates the convolution
+            kernel rather than the A-kernel.
         raise_bounds (bool): Raise an exception if any of the UV samples lie
             outside (or too close to the edge) of the grid.
         progress_bar (tqdm.tqdm): [Optional] progressbar to update.
 
     Returns:
-        tuple: (vis_grid, sampling_grid)
-            Tuple of ndarrays representing the gridded visibilities and the
-            sampling weights.
-            These are 2d arrays of same dtype as **vis**,
+        tuple: (vis_grid, sampling_grid, lha_planes)
+            Tuple of ndarrays representing the gridded visibilities, the
+            sampling weights, and the list of LHA planes (when A-projection
+            is used).
+            The first two are 2d arrays of same dtype as **vis**,
             shape ``(image_size, image_size)``.
             Note numpy style index-order, i.e. access like ``vis_grid[v,u]``.
+            The last one is 1d array os shape `(aproj_numtimesteps,)`
 
     """
     if oversampling is None:
@@ -242,7 +243,9 @@ def convolve_to_grid(kernel_func,
         num_wplanes = 1
         w_planes_gvidx = [0, len(good_vis_idx)]
 
+
     # Compute A-Projection time intervals
+    lha_planes = []
     if use_aproj is True:
         min_time = np.min(lha)
         max_time = np.max(lha)
@@ -250,22 +253,21 @@ def convolve_to_grid(kernel_func,
         tstep_size = (max_time-min_time)/num_timesteps
         time_intervals = np.linspace(min_time-tstep_size/2, max_time+tstep_size/2, aproj_numtimesteps+1)
         # Compute average lha value for each interval
-        lha_mean = []
         vis_timestep = np.zeros_like(vis, dtype=int)
         for ts in range(num_timesteps):
             # Get visibilities within the current time range
             targs = np.where(np.logical_and(lha[good_vis_idx] >= time_intervals[ts],
                                             lha[good_vis_idx] < time_intervals[ts + 1]))
             if np.size(targs) > 0:
-                lha_mean.append(np.mean(lha[good_vis_idx[targs]]))
+                lha_planes.append(np.mean(lha[good_vis_idx[targs]]))
                 vis_timestep[good_vis_idx[targs]] = ts
             else:
-                lha_mean.append(0.0)
+                lha_planes.append(0.0)
 
         # If matrix rotation is enabled, we generate A-kernel once before the gridding procedure
-        if aproj_optimisation or aproj_interp_rotation is True:
+        if aproj_opt or aproj_interp_rotation is True:
             fov = image_size * cell_size.to(u.rad).value
-            pbeam = akernel.generate_primary_beam(pbeam_coefs, fov, workarea_size)
+            pbeam = akernel_generation.generate_akernel(pbeam_coefs, fov, workarea_size)
     else:
         # Set 1 time step when A-projection is False (just to enter in gridding loop. A-projection is not performed)
         num_timesteps = 1
@@ -298,7 +300,7 @@ def convolve_to_grid(kernel_func,
                                cell_size=cell_size.to(u.rad).value, undersampling=undersampling_ratio,
                                radial_line=radial_line)
             # If aproj-optimisation is set then generate the oversampled convolution kernel using unrotated a-kernel
-            if use_aproj and aproj_optimisation is True:
+            if use_aproj and aproj_opt is True:
                 oversampled_conv_kernel, conv_support = \
                     generate_oversampled_convolution_kernel(w_kernel, aa_kernel_img_array, workarea_size,
                                                             max_wpconv_support, oversampling, pbeam, hankel_opt,
@@ -307,19 +309,19 @@ def convolve_to_grid(kernel_func,
         for ts in range(num_timesteps):
             if use_aproj is True:
                 # Generate the AW-kernels
-                if aproj_optimisation is True:
+                if aproj_opt is True:
                     # Due to aproj-optimisation we just need to rotate the convolution kernel for each LHA
                     kernel_cache = populate_kernel_cache_awprojection(oversampled_conv_kernel, conv_support,
-                                                                      oversampling, True, lha_mean[ts],
+                                                                      oversampling, True, lha_planes[ts],
                                                                       np.deg2rad(obs_dec), np.deg2rad(obs_ra))
                 else:
                     # Non-optimised A-projection: rotate a-kernel before multiplying by w- and aa-kernels
                     if aproj_interp_rotation is True:
-                        a_kernel = akernel.rotate_primary_beam_for_lha(pbeam, lha_mean[ts], np.deg2rad(obs_dec),
+                        a_kernel = akernel_generation.rotate_akernel_by_lha(pbeam, lha_planes[ts], np.deg2rad(obs_dec),
                                                                        np.deg2rad(obs_ra))
                     else:
                         fov = image_size * cell_size.to(u.rad).value
-                        a_kernel = akernel.generate_primary_beam_for_lha(pbeam_coefs, lha_mean[ts], np.deg2rad(obs_dec),
+                        a_kernel = akernel_generation.generate_akernel_from_lha(pbeam_coefs, lha_planes[ts], np.deg2rad(obs_dec),
                                                                          np.deg2rad(obs_ra), fov, workarea_size)
 
                     # Multiply a-, w- and aa-kernels, and determine FFT
@@ -377,7 +379,7 @@ def convolve_to_grid(kernel_func,
                 if progress_bar is not None:
                     progress_bar.update(1)
 
-    return vis_grid, sampling_grid
+    return vis_grid, sampling_grid, lha_planes
 
 
 def _bounds_check_kernel_centre_locations(uv, kernel_centre_indices,
@@ -654,7 +656,7 @@ def populate_kernel_cache_awprojection(oversampled_conv_kernel, trunc_conv_sup, 
 
     if rotate is True:
         # Determine parallactic angle (in radians)
-        pangle = akernel.parallatic_angle(lha, np.deg2rad(dec_rad), np.deg2rad(ra_rad))
+        pangle = akernel_generation.parallatic_angle(lha, dec_rad, ra_rad)
 
         min_val = oversampled_conv_kernel[0, 0]
         rot_oversampled_conv_kernel = np.empty_like(oversampled_conv_kernel)
@@ -689,7 +691,7 @@ def compute_wplanes(good_vis_idx, num_wplanes, w_lambda, wplanes_median):
     Args:
         good_vis_idx (numpy.array): List of good visibility indexes.
         num_wplanes (int): Number of W-planes to compute.
-        w_lambda (numpy.array): List of W-lambda values for each visibility.
+        w_lambda (numpy.array): W-lambda values for each visibility.
         wplanes_median (bool): If true, determine W-plane values using the median rather than mean.
 
     Returns:

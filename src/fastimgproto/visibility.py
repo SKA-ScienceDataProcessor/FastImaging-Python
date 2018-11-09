@@ -223,7 +223,7 @@ def visibilities_for_source_list_and_pbeam(pointing_centre, source_list, uvw,
         assert isinstance(src, SkySource)
         l, m = calculate_direction_cosines(pointing_centre, src)
         sumvis += visibilities_for_point_source_and_pbeam(uvw, uvw_parangles, l, m,
-                                                           src.flux.to(u.Jy).value, pbeam_coefs)
+                                                          src.flux.to(u.Jy).value, pbeam_coefs)
 
     return sumvis
 

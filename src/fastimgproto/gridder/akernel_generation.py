@@ -3,21 +3,21 @@ from scipy.special import sph_harm
 from scipy import ndimage
 
 
-def generate_primary_beam(pbeam_coefs, fov, workarea_size, rot_angle=0.0):
+def generate_akernel(pbeam_coefs, fov, kernel_size, rot_angle=0.0):
     """
-    Generate rotated primary beam for A-projection using spherical harmonics and rotation angle provided.
+    Generate rotated A-kernel for A-projection using spherical harmonics and rotation angle provided.
 
     Args:
         pbeam_coefs (numpy.ndarray): Spherical harmonic coefficients that generate the primary beam.
         fov (float): Field od view, in radians
-        workarea_size (int): Workarea size for kernel generation.
+        kernel_size (int): Workspace size for kernel generation.
         rot_angle (float): Rotation angle (added to theta angle of spherical harmonics).
 
     Returns:
-        numpy.ndarray: Rotated primary beam
+        numpy.ndarray: Rotated A-kernel
     """
 
-    distance_radians = np.linspace(-(fov/2), (fov/2), workarea_size)
+    distance_radians = np.linspace(-(fov/2), (fov/2), kernel_size)
     x_rad, y_rad = np.meshgrid(distance_radians, distance_radians)
 
     # Compute phi and theta
@@ -29,20 +29,20 @@ def generate_primary_beam(pbeam_coefs, fov, workarea_size, rot_angle=0.0):
     sh_degree = len(pbeam_coefs) - 1
 
     # Create primary beam from spherical harmonics
-    pbeam = np.zeros((workarea_size, workarea_size))
+    pbeam = np.zeros((kernel_size, kernel_size))
     for ord in range(0, len(pbeam_coefs)):
         if pbeam_coefs[ord] != 0.0:
             pbeam += pbeam_coefs[ord] * np.abs(sph_harm(ord, sh_degree, theta + rot_angle, phi).real)
 
     # Invert primary beam function (and normalize)
-    pbeam = np.max(np.max(pbeam)) / pbeam
+    akernel = np.max(np.max(pbeam)) / pbeam
 
-    return pbeam
+    return akernel
 
 
-def generate_primary_beam_for_lha(pbeam_coefs, lha, dec_rad, ra_rad, fov, workarea_size):
+def generate_akernel_from_lha(pbeam_coefs, lha, dec_rad, ra_rad, fov, kernel_size):
     """
-    Generate rotated primary beam for A-projection using spherical harmonics and the specified LHA value.
+    Generate rotated A-kernel for A-projection using spherical harmonics and the specified LHA value.
 
     Args:
         pbeam_coefs (numpy.ndarray): Spherical harmonic coefficients that generate the primary beam.
@@ -50,43 +50,44 @@ def generate_primary_beam_for_lha(pbeam_coefs, lha, dec_rad, ra_rad, fov, workar
         dec_rad (float): Declination of the observation pointing centre, in radians
         ra_rad (float): Right Ascension of the observation pointing centre, in radians
         fov (float): Field od view, in radians
-        workarea_size (int): Workarea size for kernel generation.
+        kernel_size (int): Workspace size for kernel generation.
 
     Returns:
-        numpy.ndarray: Rotated primary beam
+        numpy.ndarray: Rotated A-kernel
     """
 
     # Determine parallactic angle (in radians)
     pangle = parallatic_angle(lha, dec_rad, ra_rad)
 
-    pbeam = generate_primary_beam(pbeam_coefs, fov, workarea_size, pangle)
+    akernel = generate_akernel(pbeam_coefs, fov, kernel_size, pangle)
 
-    return pbeam
+    return akernel
 
 
-def rotate_primary_beam_for_lha(pbeam, lha, dec_rad, ra_rad):
+def rotate_akernel_by_lha(akernel, lha, dec_rad, ra_rad):
     """
-    Rotate input primary beam matrix using interpolation and the specified LHA value.
+    Rotate input A-kernel matrix using interpolation and the specified LHA value.
 
     Args:
-        pbeam (numpy.ndarray): Primary beam matrix.
+        akernel (numpy.ndarray): Primary beam matrix.
         lha (float): Local hour angle of the object, in decimal hours (0,24)
         dec_rad (float): Declination of the observation pointing centre, in radians
         ra_rad (float): Right Ascension of the observation pointing centre, in radians
 
     Returns:
-        numpy.ndarray: Rotated primary beam
+        numpy.ndarray: Rotated A-kernel
     """
 
     # Determine parallactic angle (in radians)
     pangle = parallatic_angle(lha, dec_rad, ra_rad)
 
-    pbmin_r = pbeam[0, 0]
+    akmin_r = akernel[0, 0]
 
     # Rotate (use order-1 spline interpolation)
-    a_kernel = ndimage.interpolation.rotate(pbeam, np.rad2deg(pangle), reshape=False, mode='constant', cval=pbmin_r, order=1)
+    rot_akernel = ndimage.interpolation.rotate(akernel, np.rad2deg(pangle), reshape=False, mode='constant',
+                                               cval=akmin_r, order=1)
 
-    return a_kernel
+    return rot_akernel
 
 
 def parallatic_angle(lha, dec_rad, ra_rad):

@@ -98,8 +98,8 @@ def cpp_image_visibilities(vis,
                            obs_ra=0.0,
                            lha=np.ones(1,),
                            pbeam_coefs=np.array([1]),
-                           aproj_interp_rotation=False,
-                           aproj_optimisation=False
+                           aproj_opt=False,
+                           aproj_mask_perc=0.0
 ):
     """
     Convenience wrapper over _cpp_image_visibilities.
@@ -173,10 +173,11 @@ def cpp_image_visibilities(vis,
             1d array, shape: `(n_vis,)`.
         pbeam_coefs (numpy.ndarray): Primary beam given by spherical harmonics coefficients.
             The SH degree is constant being derived from the number of coefficients minus one.
-        aproj_interp_rotation (bool): Use interpolation techniques for primary beam rotation
-            in A-projection instead of recomputing a-kernel from spherical harmonics.
-        aproj_optimisation (bool): Use A-projection optimisation which rotates the
-            convolution kernel rather than the A-kernel.
+        aproj_opt (bool): Use A-projection optimisation which rotates the convolution
+            kernel rather than the A-kernel.
+        aproj_mask_perc (float): Threshold value (in percentage) used to detect near zero
+            regions of the primary beam. The output dirty image and beam are masked in
+            the same regions to hide the boosted noise.
 
     Returns:
         tuple: (image, beam)
@@ -225,8 +226,8 @@ def cpp_image_visibilities(vis,
         obs_ra,
         lha,
         pbeam_coefs,
-        aproj_interp_rotation,
-        aproj_optimisation,
+        aproj_opt,
+        aproj_mask_perc,
     )
 
     return image, beam
