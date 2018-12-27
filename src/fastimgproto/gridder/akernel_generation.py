@@ -17,7 +17,7 @@ def generate_akernel(pbeam_coefs, fov, kernel_size, rot_angle=0.0):
         numpy.ndarray: Rotated A-kernel
     """
 
-    distance_radians = np.linspace(-(fov/2), (fov/2), kernel_size)
+    distance_radians = np.arange(-kernel_size/2, kernel_size/2) * fov / kernel_size
     x_rad, y_rad = np.meshgrid(distance_radians, distance_radians)
 
     # Compute phi and theta
