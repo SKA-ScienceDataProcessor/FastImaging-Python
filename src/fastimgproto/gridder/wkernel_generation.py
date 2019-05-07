@@ -67,7 +67,7 @@ class WKernel(object):
 
             # Distance from each pixel in the diagonal direction to the kernel-centre position:
             # (units of pixels)
-            xy_pixels = np.arange(array_size, dtype=np.float_) * undersampling * np.sqrt(2)
+            xy_pixels = np.arange(array_size, dtype=np.float_) * undersampling
 
             # Now translate that to distance in terms of direction cosines
             self.distance_vec = xy_pixels * cell_size

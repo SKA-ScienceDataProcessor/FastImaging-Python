@@ -153,8 +153,8 @@ class ImgDomKernel(object):
             # Multiply separable components to get the 2-d kernel:
             self.array = np.outer(kernel_img_1d, kernel_img_1d)
         else:
-            # Semi-diagonal of the kernel:
-            self.array = kernel_img_1d[(array_size//2):] * kernel_img_1d[(array_size//2):]
+            # Horizontal radius of the kernel:
+            self.array = kernel_img_1d[(array_size//2):]
 
         if normalize:
             array_sum = self.array.sum()

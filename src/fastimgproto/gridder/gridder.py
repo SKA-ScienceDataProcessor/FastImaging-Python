@@ -228,16 +228,8 @@ def convolve_to_grid(kernel_func,
             # Compute workarea size
             workarea_size = image_size // undersampling_ratio
 
-        if hankel_opt is True:
-            radial_line = True
-            if undersampling_ratio > 1:
-                undersampling_ratio = undersampling_ratio // 2
-                workarea_size = workarea_size * 2
-        else:
-            radial_line = False
-
         # Compute image-domain AA kernel
-        aa_kernel_img_array = ImgDomKernel(kernel_func, workarea_size, normalize=False, radial_line=radial_line,
+        aa_kernel_img_array = ImgDomKernel(kernel_func, workarea_size, normalize=False, radial_line=hankel_opt,
                                            analytic_gcf=analytic_gcf).array
 
     else:
@@ -301,7 +293,7 @@ def convolve_to_grid(kernel_func,
             # Generate W-kernel
             w_kernel = WKernel(w_value=w_avg_values[wplane], array_size=workarea_size,
                                cell_size=cell_size.to(u.rad).value, undersampling=undersampling_ratio,
-                               radial_line=radial_line)
+                               radial_line=hankel_opt)
             # If aproj-optimisation is set then generate the oversampled convolution kernel using unrotated a-kernel
             if use_aproj and aproj_opt is True:
                 oversampled_conv_kernel, conv_support = \
@@ -613,14 +605,14 @@ def generate_oversampled_convolution_kernel(w_kernel, aa_kernel_img, workarea_si
             for pos in reversed(range(1, conv_support + 1)):  # 1, 2, ..., conv_support
                 if np.abs(comb_kernel_radius[pos * oversampling]) > min_value:
                     break
-            trunc_conv_sup = min(int(np.ceil(pos * np.sqrt(2) / 2)), conv_support)
+            trunc_conv_sup = min(int(np.ceil(pos)), conv_support)
 
         # Interpolate
         max_kernel_size = (trunc_conv_sup * 2 + 1 + 1) * oversampling
         kernel_centre = max_kernel_size // 2
         x, y = np.meshgrid(range(max_kernel_size), range(max_kernel_size))
         r = np.sqrt((x - kernel_centre) ** 2 + (y - kernel_centre) ** 2)
-        f = interp1d(np.arange(0, workarea_centre / (np.sqrt(2)), 1 / np.sqrt(2)),
+        f = interp1d(np.arange(0, workarea_centre, 1),
                      comb_kernel_radius, copy=False, kind=interp_type, bounds_error=False, fill_value=0.0,
                      assume_sorted=True)
         comb_kernel_array = f(r.flat).reshape(r.shape)
