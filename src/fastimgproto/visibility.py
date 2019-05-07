@@ -120,7 +120,8 @@ def visibilities_for_point_source_and_pbeam(uvw_baselines, uvw_parangles, l, m, 
     src_offset = -np.array([l, m, src_n - 1])
 
     # Degree of spherical harmonics
-    sh_degree = len(pbeam_coefs) - 1
+    assert (len(pbeam_coefs) % 2) != 0
+    sh_degree = int((len(pbeam_coefs) - 1) / 2)
 
     # Derive phi and theta of the source
     phi = np.arccos(src_n)
@@ -131,16 +132,16 @@ def visibilities_for_point_source_and_pbeam(uvw_baselines, uvw_parangles, l, m, 
 
     # Find maximum value of primary beam - for normalisation
     pbeam_max = 0.0
-    for ord in range(0, len(pbeam_coefs)):
-        if pbeam_coefs[ord] != 0.0:
-            pbeam_max += pbeam_coefs[ord] * np.abs(sph_harm(ord, sh_degree, 0.0, 0.0).real)
+    for ord in range(-sh_degree, sh_degree + 1):
+        if pbeam_coefs[sh_degree + ord] != 0.0:
+            pbeam_max += pbeam_coefs[sh_degree + ord] * np.abs(sph_harm(ord, sh_degree, 0.0, 0.0).real)
 
     pbeam_flux = np.empty_like(uvw_parangles)
     for idx, pa in enumerate(uvw_parangles):
         pbeam_value = 0.0
-        for ord in range(0, len(pbeam_coefs)):
-            if pbeam_coefs[ord] != 0.0:
-                pbeam_value += pbeam_coefs[ord] * np.abs(sph_harm(ord, sh_degree, theta + pa, phi).real)
+        for ord in range(-sh_degree, sh_degree + 1):
+            if pbeam_coefs[sh_degree + ord] != 0.0:
+                pbeam_value += pbeam_coefs[sh_degree + ord] * np.abs(sph_harm(ord, sh_degree, theta + pa, phi).real)
         # Normalise and append
         pbeam_flux[idx] = pbeam_value / pbeam_max
 

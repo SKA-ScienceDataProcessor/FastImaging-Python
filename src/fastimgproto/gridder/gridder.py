@@ -610,7 +610,7 @@ def generate_oversampled_convolution_kernel(w_kernel, aa_kernel_img, workarea_si
         # Find truncate position
         if kernel_trunc_perc > 0.0:
             min_value = np.abs(comb_kernel_radius[0]) * kernel_trunc_perc / 100.0
-            for pos in reversed(range(1, conv_support + 1)):
+            for pos in reversed(range(1, conv_support + 1)):  # 1, 2, ..., conv_support
                 if np.abs(comb_kernel_radius[pos * oversampling]) > min_value:
                     break
             trunc_conv_sup = min(int(np.ceil(pos * np.sqrt(2) / 2)), conv_support)

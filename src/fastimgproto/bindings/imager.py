@@ -77,6 +77,7 @@ def cpp_image_visibilities(vis,
                            uvw_lambda,
                            image_size,
                            cell_size,
+                           padding_factor,
                            kernel_func_name='pswf',
                            kernel_support=3,
                            kernel_exact=True,
@@ -90,16 +91,17 @@ def cpp_image_visibilities(vis,
                            wplanes_median=False,
                            max_wpconv_support=0,
                            hankel_opt=False,
+                           hankel_proj_slice=False,
                            undersampling_opt=0,
                            kernel_trunc_perc=0.0,
                            interp_type='linear',
                            aproj_numtimesteps=0,
                            obs_dec=0.0,
                            obs_ra=0.0,
-                           lha=np.ones(1,),
-                           pbeam_coefs=np.array([1]),
                            aproj_opt=False,
-                           aproj_mask_perc=0.0
+                           aproj_mask_perc=0.0,
+                           lha=np.ones(1, ),
+                           pbeam_coefs=np.array([1])
 ):
     """
     Convenience wrapper over _cpp_image_visibilities.
@@ -129,6 +131,7 @@ def cpp_image_visibilities(vis,
             corresponds to the origin in UV-space.
         cell_size (astropy.units.Quantity): Angular-width of a synthesized pixel
             in the image to be created, e.g. ``3.5 * u.arcsecond``.
+        padding_factor (float): Image padding factor. Shall be larger that 1.
         kernel_func_name (str): Choice of kernel function from limited C++ selection.
         kernel_support (int): Defines the 'radius' of the bounding box within
             which convolution takes place. `Box width in pixels = 2*support+1`.
@@ -155,6 +158,8 @@ def cpp_image_visibilities(vis,
             execution of W-Projection. Set 0 to disable HT and 1 or 2 to enable HT.
             The larger non-zero value increases HT accuracy, by using an extended
             W-kernel workarea size.
+        hankel_proj_slice (bool): Use projection slice method to compute Hankel
+            transform. Provides significant speedup at the cost of a lower accuracy.
         undersampling_opt (int): Use W-kernel undersampling for faster kernel
             generation. Set 0 to disable undersampling and 1 to enable maximum
             undersampling. Reduce the level of undersampling by increasing the
@@ -205,6 +210,7 @@ def cpp_image_visibilities(vis,
         uvw_lambda,
         int(image_size.to(u.pix).value),
         cell_size.to(u.arcsec).value,
+        padding_factor,
         stp_kernel,
         int(kernel_support),
         kernel_exact,
@@ -218,16 +224,17 @@ def cpp_image_visibilities(vis,
         wplanes_median,
         int(max_wpconv_support),
         hankel_opt,
+        hankel_proj_slice,
         undersampling_opt,
         kernel_trunc_perc,
         stp_interpolation,
         int(aproj_numtimesteps),
         obs_dec,
         obs_ra,
-        lha,
-        pbeam_coefs,
         aproj_opt,
         aproj_mask_perc,
+        lha,
+        pbeam_coefs,
     )
 
     return image, beam

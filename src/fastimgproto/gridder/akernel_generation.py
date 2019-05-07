@@ -26,16 +26,16 @@ def generate_akernel(pbeam_coefs, fov, kernel_size, rot_angle=0.0):
     theta = np.arctan(y_rad/x_rad)
 
     # Degree of spherical harmonics
-    sh_degree = len(pbeam_coefs) - 1
+    sh_degree = int((len(pbeam_coefs) - 1) / 2)
 
     # Create primary beam from spherical harmonics
     pbeam = np.zeros((kernel_size, kernel_size))
-    for ord in range(0, len(pbeam_coefs)):
-        if pbeam_coefs[ord] != 0.0:
-            pbeam += pbeam_coefs[ord] * np.abs(sph_harm(ord, sh_degree, theta + rot_angle, phi).real)
+    for ord in range(-sh_degree, sh_degree + 1):
+        if pbeam_coefs[sh_degree + ord] != 0.0:
+            pbeam += pbeam_coefs[sh_degree + ord] * np.abs(sph_harm(ord, sh_degree, theta + rot_angle, phi).real)
 
     # Invert primary beam function (and normalize)
-    akernel = np.max(np.max(pbeam)) / pbeam
+    akernel = 1.0 / pbeam
 
     return akernel
 
